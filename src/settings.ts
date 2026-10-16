@@ -1,20 +1,6 @@
 import { App, PluginSettingTab, SettingDefinition } from 'obsidian';
 import type AutoBreadcrumbsPlugin from './main';
 
-export interface AutoBreadcrumbsSettings {
-  showBookmarks: boolean;
-  positionMode: 'auto' | 'header' | 'editor';
-  ignorePrefix: boolean;
-  allowedExtensions: string;
-}
-
-export const DEFAULT_SETTINGS: AutoBreadcrumbsSettings = {
-  showBookmarks: true,
-  positionMode: 'auto',
-  ignorePrefix: true,
-  allowedExtensions: 'md, base, canvas',
-};
-
 export class AutoBreadcrumbsSettingTab extends PluginSettingTab {
   plugin: AutoBreadcrumbsPlugin;
 
@@ -23,10 +9,6 @@ export class AutoBreadcrumbsSettingTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
-  /**
-   * Declarative Settings API (Obsidian 1.13.0+)
-   * Automatically indexed by Obsidian's native settings search.
-   */
   getSettingDefinitions(): SettingDefinition[] {
     return [
       {
