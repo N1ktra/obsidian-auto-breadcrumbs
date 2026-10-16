@@ -1,0 +1,27 @@
+{
+  "name": "obsidian-auto-breadcrumbs",
+  "version": "1.0.0",
+  "description": "Seamless clickable breadcrumb path and bookmark navigation without manual properties.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit && node esbuild.config.mjs production"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "breadcrumbs",
+    "navigation",
+    "bookmarks"
+  ],
+  "author": "Niklas Tran",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "builtin-modules": "^4.0.0",
+    "esbuild": "^0.21.0",
+    "obsidian": "latest",
+    "tslib": "^2.6.0",
+    "typescript": "^5.4.0"
+  }
+}

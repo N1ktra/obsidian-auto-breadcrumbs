@@ -1,0 +1,10 @@
+{
+  "id": "auto-breadcrumbs",
+  "name": "Auto Breadcrumbs",
+  "version": "1.0.0",
+  "minAppVersion": "1.13.0",
+  "description": "Seamless clickable breadcrumb path and bookmark navigation without manual properties.",
+  "author": "Your Name",
+  "authorUrl": "https://github.com/N1ktra",
+  "isDesktopOnly": false
+}

@@ -1,0 +1,204 @@
+/* =======================================================
+   1. Overflow-Fix: Verhindert das Abschneiden des Dropdowns
+   Spezifität über body / leaf erhöht statt !important
+   ======================================================= */
+body .workspace-leaf .view-header,
+body .workspace-leaf .view-header-title-container,
+body .workspace-leaf .auto-bc-header {
+  overflow: visible;
+}
+
+/* =======================================================
+   2. Native Obsidian-Trennzeichen unterdrücken
+   ======================================================= */
+body .workspace-leaf .view-header-title-container .view-header-breadcrumb,
+body .workspace-leaf .view-header-title-container .view-header-breadcrumb-separator {
+  display: none;
+}
+
+/* =======================================================
+   3. Basis-Container
+   ======================================================= */
+.auto-bc-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+  background: transparent;
+  border: none;
+  position: relative;
+}
+
+.auto-bc-header.auto-bc-in-header {
+  margin: 0;
+  padding: 0;
+  font-size: 0.82em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.auto-bc-header.auto-bc-in-editor {
+  margin: 0;
+  padding: 8px 0 12px 0;
+  font-size: 0.8em;
+  line-height: 1.2;
+  flex-wrap: wrap;
+}
+
+/* =======================================================
+   4. Bookmarks Dropdown
+   ======================================================= */
+.auto-bc-bm-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Der Button */
+.auto-bc-bm-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-normal);
+  background-color: var(--background-modifier-form-field);
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.12s ease;
+}
+
+.auto-bc-bm-trigger:hover,
+.auto-bc-bm-wrapper:not(.is-closed):hover .auto-bc-bm-trigger,
+.auto-bc-bm-wrapper.is-open .auto-bc-bm-trigger {
+  background-color: var(--background-modifier-hover);
+  border-color: var(--text-muted);
+}
+
+.auto-bc-bm-trigger .auto-bc-bm-icon {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.85;
+}
+
+.auto-bc-bm-trigger .auto-bc-bm-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Der Menü-Container */
+.auto-bc-bm-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin: 0;
+  padding: 6px 0 0 0;
+  background: transparent;
+  z-index: var(--layer-popover, 9999);
+}
+
+/* Öffnet bei Hover (NUR wenn nicht aktiv weggeklickt per .is-closed) ODER per .is-open */
+.auto-bc-bm-wrapper:not(.is-closed):hover .auto-bc-bm-menu,
+.auto-bc-bm-wrapper.is-open .auto-bc-bm-menu {
+  display: block;
+}
+
+/* Der Menükasten */
+.auto-bc-bm-menu-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-l, 0 10px 24px rgba(0, 0, 0, 0.25));
+  padding: 4px;
+  min-width: 170px;
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+/* Menüeinträge */
+.auto-bc-bm-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  color: var(--text-normal);
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+
+.auto-bc-bm-item:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-accent);
+  text-decoration: none;
+}
+
+.auto-bc-bm-item.is-current {
+  color: var(--text-accent);
+  font-weight: 600;
+}
+
+.auto-bc-bm-item .auto-bc-bm-item-icon svg {
+  width: 12px;
+  height: 12px;
+  opacity: 0.7;
+}
+
+/* Trennlinie */
+.auto-bc-header .auto-bc-divider {
+  width: 1px;
+  height: 14px;
+  background-color: var(--background-modifier-border);
+  margin: 0 4px;
+  opacity: 0.8;
+  display: inline-block;
+}
+
+/* =======================================================
+   5. Breadcrumbs Links & Chips
+   ======================================================= */
+.auto-bc-header .auto-bc-link {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+  background-color: var(--background-modifier-form-field);
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.auto-bc-header .auto-bc-link:hover {
+  color: var(--text-on-accent);
+  background-color: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+  text-decoration: none;
+}
+
+.auto-bc-header .auto-bc-static {
+  color: var(--text-faint);
+  padding: 1px 4px;
+  cursor: default;
+  opacity: 0.5;
+}
+
+.auto-bc-header .auto-bc-separator {
+  color: var(--text-faint);
+  opacity: 0.35;
+  font-size: 0.75em;
+  padding: 0 1px;
+}
