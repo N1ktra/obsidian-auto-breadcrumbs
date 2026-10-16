@@ -164,6 +164,16 @@ body .workspace-leaf .view-header-title-container .view-header-breadcrumb-separa
   display: inline-block;
 }
 
+/* Standard-Abstand im leeren Tab (ohne Hierarchie/Divider), damit es nicht zu nah am Rand klebt */
+.auto-bc-bm-wrapper {
+  margin-right: 8px;
+}
+
+/* Reduzierter Abstand, wenn der Divider folgt, damit es perfekt symmetrisch wirkt */
+.auto-bc-bm-wrapper.has-hierarchy {
+  margin-right: 3px;
+}
+
 /* =======================================================
    5. Breadcrumbs Links & Chips
    ======================================================= */

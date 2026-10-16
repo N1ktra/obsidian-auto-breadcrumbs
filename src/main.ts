@@ -18,17 +18,25 @@ export default class AutoBreadcrumbsPlugin extends Plugin {
     this.addSettingTab(new AutoBreadcrumbsSettingTab(this.app, this));
 
     this.registerEvent(
-      this.app.workspace.on('file-open', (file) => {
-        if (!file) {
-          this.renderer.removeAll();
-          return;
-        }
-        requestAnimationFrame(() => this.renderer.render(file));
+      this.app.workspace.on('active-leaf-change', () => {
+        requestAnimationFrame(() => this.renderer.updateActiveLeaf());
+      })
+    );
+
+    this.registerEvent(
+      this.app.workspace.on('file-open', () => {
+        requestAnimationFrame(() => this.renderer.updateActiveLeaf());
+      })
+    );
+
+    this.registerEvent(
+      this.app.workspace.on('layout-change', () => {
+        requestAnimationFrame(() => this.renderer.updateActiveLeaf());
       })
     );
 
     this.app.workspace.onLayoutReady(() => {
-      this.refreshActiveNote();
+      this.renderer.updateActiveLeaf();
     });
 
     this.registerDomEvent(document, 'click', (e: MouseEvent) => {
@@ -46,24 +54,13 @@ export default class AutoBreadcrumbsPlugin extends Plugin {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
   }
 
-  /**
-   * Called automatically by Obsidian's Declarative Settings API when a setting changes.
-   * Overriding saveData ensures the UI re-renders immediately upon toggling options.
-   */
   async saveData(data: any): Promise<void> {
     await super.saveData(data);
-    this.refreshActiveNote();
+    this.renderer.updateActiveLeaf();
   }
 
   async saveSettings() {
     await this.saveData(this.settings);
-  }
-
-  private refreshActiveNote() {
-    const activeFile = this.app.workspace.getActiveFile();
-    if (activeFile) {
-      this.renderer.render(activeFile);
-    }
   }
 
   onunload() {

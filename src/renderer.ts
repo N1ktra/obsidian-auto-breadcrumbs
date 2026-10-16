@@ -1,4 +1,4 @@
-import { App, MarkdownView, Platform, setIcon, TFile } from 'obsidian';
+import { App, FileView, Platform, setIcon, TFile } from 'obsidian';
 import { AutoBreadcrumbsSettings, BookmarkItemRef, FolderHierarchyItem } from './types';
 import { BreadcrumbResolver } from './resolver';
 
@@ -13,6 +13,10 @@ export class BreadcrumbRenderer {
     document.querySelectorAll('.auto-bc-header').forEach((el) => el.remove());
   }
 
+  removeFromContainer(container: HTMLElement) {
+    container.querySelectorAll('.auto-bc-header').forEach((el) => el.remove());
+  }
+
   restoreNativeBreadcrumbs() {
     document
       .querySelectorAll<HTMLElement>('.view-header-breadcrumb, .view-header-breadcrumb-separator')
@@ -21,18 +25,35 @@ export class BreadcrumbRenderer {
       });
   }
 
-  render(file: TFile) {
-    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!view) return;
+  updateActiveLeaf() {
+    const leaf = this.app.workspace.activeLeaf;
+    if (!leaf || !leaf.view) {
+      this.removeAll();
+      return;
+    }
 
-    this.removeAll();
+    const view = leaf.view;
+    const file = view instanceof FileView && view.file ? view.file : null;
+
+    this.render(file, view.containerEl);
+  }
+
+  render(file: TFile | null, containerEl?: HTMLElement) {
+    const leaf = this.app.workspace.activeLeaf;
+    const targetRoot = containerEl || leaf?.view?.containerEl;
+    if (!targetRoot) return;
+
+    this.removeFromContainer(targetRoot);
 
     const settings = this.getSettings();
-    const hierarchy = this.resolver.getFolderHierarchy(file);
-    const bookmarkedFiles = settings.showBookmarks ? this.resolver.getBookmarkedFiles() : [];
-    const hasBookmarks = bookmarkedFiles.length > 0;
+    // Prüfen, ob das Setting aktiv ist (unabhängig davon, ob gerade Bookmarks existieren)
+    const showBookmarksSetting = settings.showBookmarks;
+    const bookmarkedFiles = showBookmarksSetting ? this.resolver.getBookmarkedFiles() : [];
 
-    if (!hasBookmarks && hierarchy.length === 0) return;
+    const hierarchy: FolderHierarchyItem[] = file ? this.resolver.getFolderHierarchy(file) : [];
+
+    // Wenn weder das Setting an ist noch eine Hierarchie existiert, abbrechen
+    if (!showBookmarksSetting && hierarchy.length === 0) return;
 
     const placeInHeader =
       settings.positionMode === 'header'
@@ -45,21 +66,32 @@ export class BreadcrumbRenderer {
       cls: `auto-bc-header ${placeInHeader ? 'auto-bc-in-header' : 'auto-bc-in-editor'}`,
     });
 
-    if (hasBookmarks) {
+    // Das Lesezeichen-Icon wird immer gezeichnet, wenn das Setting an ist
+    if (showBookmarksSetting) {
       this.renderBookmarksDropdown(bar, file, bookmarkedFiles, hierarchy.length > 0);
     }
 
-    this.renderHierarchyLinks(bar, file, hierarchy);
-    this.mountBar(view, bar, placeInHeader, hierarchy.length > 0);
+    if (file && hierarchy.length > 0) {
+      // Wenn Bookmarks aktiv sind UND eine Hierarchie folgt, zeichnen wir den Divider dazwischen!
+      if (showBookmarksSetting) {
+        bar.createSpan({ cls: 'auto-bc-divider' });
+      }
+      this.renderHierarchyLinks(bar, file, hierarchy);
+    }
+
+    this.mountBar(targetRoot, bar, placeInHeader, hierarchy.length > 0);
   }
 
   private renderBookmarksDropdown(
     bar: HTMLElement,
-    currentFile: TFile,
+    currentFile: TFile | null,
     bookmarks: BookmarkItemRef[],
-    hasHierarchyAfter: boolean
+    hasHierarchy: boolean
   ) {
-    const wrapper = bar.createDiv({ cls: 'auto-bc-bm-wrapper' });
+    // Wenn eine Hierarchie folgt, bekommt er die Klasse, sonst nicht
+    const wrapper = bar.createDiv({
+      cls: `auto-bc-bm-wrapper ${hasHierarchy ? 'has-hierarchy' : ''}`
+    });
 
     const trigger = wrapper.createEl('a', { cls: 'auto-bc-bm-trigger' });
     const iconSpan = trigger.createSpan({ cls: 'auto-bc-bm-icon' });
@@ -93,26 +125,29 @@ export class BreadcrumbRenderer {
       }
     };
 
-    bookmarks.forEach((bm) => {
-      const isCurrent = currentFile.path === bm.path;
-      const item = menuInner.createEl('a', {
-        cls: `auto-bc-bm-item ${isCurrent ? 'is-current' : ''}`,
+    if (bookmarks.length === 0) {
+      const emptyItem = menuInner.createDiv({ cls: 'auto-bc-bm-item' });
+      emptyItem.style.opacity = '0.5';
+      emptyItem.style.cursor = 'default';
+      emptyItem.createSpan({ text: 'No bookmarks found' });
+    } else {
+      bookmarks.forEach((bm) => {
+        const isCurrent = currentFile ? currentFile.path === bm.path : false;
+        const item = menuInner.createEl('a', {
+          cls: `auto-bc-bm-item ${isCurrent ? 'is-current' : ''}`,
+        });
+
+        const itemIcon = item.createSpan({ cls: 'auto-bc-bm-item-icon' });
+        setIcon(itemIcon, 'file-text');
+        item.createSpan({ text: bm.title });
+
+        item.onclick = (e: MouseEvent) => {
+          e.preventDefault();
+          wrapper.classList.remove('is-open');
+          wrapper.classList.add('is-closed');
+          this.app.workspace.openLinkText(bm.path, currentFile ? currentFile.path : '');
+        };
       });
-
-      const itemIcon = item.createSpan({ cls: 'auto-bc-bm-item-icon' });
-      setIcon(itemIcon, 'file-text');
-      item.createSpan({ text: bm.title });
-
-      item.onclick = (e: MouseEvent) => {
-        e.preventDefault();
-        wrapper.classList.remove('is-open');
-        wrapper.classList.add('is-closed');
-        this.app.workspace.openLinkText(bm.path, currentFile.path);
-      };
-    });
-
-    if (hasHierarchyAfter) {
-      bar.createSpan({ cls: 'auto-bc-divider' });
     }
   }
 
@@ -140,15 +175,18 @@ export class BreadcrumbRenderer {
   }
 
   private mountBar(
-    view: MarkdownView,
+    containerEl: HTMLElement,
     bar: HTMLElement,
     placeInHeader: boolean,
     hasHierarchy: boolean
   ) {
     if (placeInHeader) {
-      const viewHeader = view.containerEl.querySelector('.view-header');
+      const viewHeader = containerEl.querySelector('.view-header');
+      // Wir suchen exakt nach deinem genannten Container in der Titelleiste
       const titleParent =
-        viewHeader?.querySelector('.view-header-title-container') || viewHeader;
+        viewHeader?.querySelector('.view-header-title-container') ||
+        viewHeader?.querySelector('.view-header-left') ||
+        viewHeader;
 
       if (titleParent) {
         titleParent
@@ -166,11 +204,14 @@ export class BreadcrumbRenderer {
       }
     }
 
-    const viewContainer = view.containerEl;
+    // Editor-Fallback oder wenn Header erzwungen deaktiviert ist
     const targetContainer =
-      viewContainer.querySelector('.cm-sizer') ||
-      viewContainer.querySelector('.markdown-preview-sizer') ||
-      view.contentEl;
-    targetContainer.prepend(bar);
+      containerEl.querySelector('.cm-sizer') ||
+      containerEl.querySelector('.markdown-preview-sizer') ||
+      containerEl.querySelector('.view-content');
+
+    if (targetContainer) {
+      targetContainer.prepend(bar);
+    }
   }
 }
