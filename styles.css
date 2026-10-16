@@ -207,10 +207,16 @@ body {
 }
 
 /* Open via hover (hover-capable devices only) */
-@media (hover: hover) {
-  .auto-bc-bm-wrapper:not(.is-closed):hover .auto-bc-bm-menu {
+@media (hover: hover) and (pointer: fine) {
+  .auto-bc-bm-wrapper:not(.is-closed):hover
+    .auto-bc-bm-menu {
     display: block;
   }
+}
+
+.auto-bc-bm-trigger {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* --- Menu box --- */

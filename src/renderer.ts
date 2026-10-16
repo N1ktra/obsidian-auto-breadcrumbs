@@ -125,27 +125,35 @@ export class BreadcrumbRenderer {
       cls: 'auto-bc-bm-menu-inner',
     });
 
-    wrapper.addEventListener('mouseleave', () => {
-      wrapper.classList.remove('is-closed');
+    const isMobile = Platform.isMobile;
+    if (isMobile) {
+    trigger.addEventListener('click', (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const isOpen = wrapper.classList.contains('is-open');
+
+        wrapper.classList.toggle('is-open', !isOpen);
+        wrapper.classList.remove('is-closed');
+    });
+    } else {
+    wrapper.addEventListener('mouseenter', () => {
+        wrapper.classList.add('is-open');
+        wrapper.classList.remove('is-closed');
     });
 
-    trigger.onclick = (e: MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const isOpen =
-        wrapper.classList.contains('is-open') ||
-        (wrapper.matches(':hover') &&
-          !wrapper.classList.contains('is-closed'));
-
-      if (isOpen) {
+    wrapper.addEventListener('mouseleave', () => {
         wrapper.classList.remove('is-open');
-        wrapper.classList.add('is-closed');
-      } else {
         wrapper.classList.remove('is-closed');
-        wrapper.classList.add('is-open');
-      }
-    };
+    });
+
+    trigger.addEventListener('click', (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        wrapper.classList.remove('is-open');
+    });
+    }
 
     if (bookmarks.length === 0) {
       const emptyItem = menuInner.createDiv({
