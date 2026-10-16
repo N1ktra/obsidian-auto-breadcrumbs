@@ -126,9 +126,8 @@ export class BreadcrumbRenderer {
         bar.createSpan({ text: '›', cls: 'auto-bc-separator' });
       }
 
-      const matchedFile = this.resolver.findMatchingFile(item);
-
-      if (matchedFile) {
+      if (item.matchedFile) {
+        const matchedFile = item.matchedFile;
         const link = bar.createEl('a', { text: item.name, cls: 'auto-bc-link' });
         link.onclick = (e: MouseEvent) => {
           e.preventDefault();

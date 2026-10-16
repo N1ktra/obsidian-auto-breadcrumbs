@@ -1,4 +1,4 @@
-import { App, TFile } from 'obsidian';
+import { App, Platform, TFile, TFolder } from 'obsidian';
 import { AutoBreadcrumbsSettings, BookmarkItemRef, FolderHierarchyItem } from './types';
 
 export class BreadcrumbResolver {
@@ -22,27 +22,46 @@ export class BreadcrumbResolver {
   }
 
   getFolderHierarchy(file: TFile): FolderHierarchyItem[] {
-    const hierarchy: FolderHierarchyItem[] = [];
+    const rawFolders: { name: string; path: string; folderObj: TFolder }[] = [];
     let cur = file.parent;
 
     while (cur && !cur.isRoot()) {
-      hierarchy.unshift({ name: cur.name, path: cur.path, folderObj: cur });
+      rawFolders.unshift({ name: cur.name, path: cur.path, folderObj: cur });
       cur = cur.parent;
     }
 
     // Avoid duplicate entry if note has the same name as its immediate folder
     const currentClean = this.cleanName(file.basename).toLowerCase();
-    if (hierarchy.length > 0) {
-      const lastFolderClean = this.cleanName(hierarchy[hierarchy.length - 1].name).toLowerCase();
+    if (rawFolders.length > 0) {
+      const lastFolderClean = this.cleanName(rawFolders[rawFolders.length - 1].name).toLowerCase();
       if (lastFolderClean === currentClean) {
-        hierarchy.pop();
+        rawFolders.pop();
       }
+    }
+
+    // Resolve matching note files for each folder
+    const hierarchy: FolderHierarchyItem[] = rawFolders.map((folder) => ({
+      ...folder,
+      matchedFile: this.findMatchingFile(folder),
+    }));
+
+    // Determine if non-clickable folders should be filtered out
+    const filterMode = this.getSettings().filterMode;
+    const onlyClickable =
+      filterMode === 'clickable'
+        ? true
+        : filterMode === 'all'
+        ? false
+        : Platform.isMobile;
+
+    if (onlyClickable) {
+      return hierarchy.filter((item) => item.matchedFile !== null);
     }
 
     return hierarchy;
   }
 
-  findMatchingFile(folderItem: FolderHierarchyItem): TFile | null {
+  findMatchingFile(folderItem: { name: string; path: string; folderObj: TFolder }): TFile | null {
     const targetClean = this.cleanName(folderItem.name).toLowerCase();
     const allowedExts = this.getExtensions();
     const files = this.app.vault

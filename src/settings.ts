@@ -33,6 +33,19 @@ export class AutoBreadcrumbsSettingTab extends PluginSettingTab {
         },
       },
       {
+        name: 'Path display mode',
+        desc: 'Choose whether to display the full folder path or only folders that have a matching clickable note.',
+        control: {
+          type: 'dropdown',
+          key: 'filterMode',
+          options: {
+            'auto': 'Automatic (Desktop: Full path, Mobile: Clickable only)',
+            'all': 'Always show full path',
+            'clickable': 'Always show clickable folders only',
+          },
+        },
+      },
+      {
         name: 'Ignore prefixes & emojis',
         desc: 'Ignores leading emojis, numbering, and symbols when matching folders to notes (e.g., folder "Travel" matches "✈️ Travel.md").',
         control: {
