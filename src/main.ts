@@ -1,4 +1,4 @@
-import { Plugin } from 'obsidian';
+import { Plugin, WorkspaceLeaf } from 'obsidian';
 import { AutoBreadcrumbsSettings, DEFAULT_SETTINGS } from './types';
 import { AutoBreadcrumbsSettingTab } from './settings';
 import { BreadcrumbResolver } from './resolver';
@@ -17,21 +17,34 @@ export default class AutoBreadcrumbsPlugin extends Plugin {
 
     this.addSettingTab(new AutoBreadcrumbsSettingTab(this.app, this));
 
+    // Reagiert nur bei Fokuswechseln im Hauptarbeitsbereich (ignoriert Seitenleisten komplett)
     this.registerEvent(
-      this.app.workspace.on('active-leaf-change', () => {
-        requestAnimationFrame(() => this.renderer.updateActiveLeaf());
+      this.app.workspace.on('active-leaf-change', (leaf: WorkspaceLeaf | null) => {
+        if (!leaf || leaf.getRoot() !== this.app.workspace.rootSplit) {
+          return;
+        }
+        this.renderer.updateActiveLeaf();
       })
     );
 
+    // Reagiert verlässlich, wenn eine Datei geöffnet wird (z. B. aus linker Leiste oder Suche)
     this.registerEvent(
       this.app.workspace.on('file-open', () => {
-        requestAnimationFrame(() => this.renderer.updateActiveLeaf());
+        this.renderer.updateActiveLeaf();
       })
     );
 
+    // Reagiert auf Layout-Änderungen im Hauptarbeitsbereich
     this.registerEvent(
       this.app.workspace.on('layout-change', () => {
-        requestAnimationFrame(() => this.renderer.updateActiveLeaf());
+        this.renderer.updateActiveLeaf();
+      })
+    );
+
+    // Reagiert auf Umbenennungen / Verschiebungen von Notizen
+    this.registerEvent(
+      this.app.vault.on('rename', () => {
+        this.renderer.updateActiveLeaf();
       })
     );
 
@@ -39,6 +52,7 @@ export default class AutoBreadcrumbsPlugin extends Plugin {
       this.renderer.updateActiveLeaf();
     });
 
+    // Dropdown bei Klick ins Leere schließen
     this.registerDomEvent(document, 'click', (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target?.closest('.auto-bc-bm-wrapper')) {
@@ -54,13 +68,9 @@ export default class AutoBreadcrumbsPlugin extends Plugin {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
   }
 
-  async saveData(data: any): Promise<void> {
-    await super.saveData(data);
-    this.renderer.updateActiveLeaf();
-  }
-
   async saveSettings() {
-    await this.saveData(this.settings);
+    await super.saveData(this.settings);
+    this.renderer.updateActiveLeaf();
   }
 
   onunload() {

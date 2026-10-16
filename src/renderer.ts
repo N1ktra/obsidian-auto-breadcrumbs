@@ -1,4 +1,3 @@
-
 import { App, FileView, Platform, setIcon, TFile, View } from 'obsidian';
 import {
   AutoBreadcrumbsSettings,
@@ -8,6 +7,8 @@ import {
 import { BreadcrumbResolver } from './resolver';
 
 export class BreadcrumbRenderer {
+  private lastRenderedPath: string | null = null;
+
   constructor(
     private app: App,
     private resolver: BreadcrumbResolver,
@@ -16,6 +17,7 @@ export class BreadcrumbRenderer {
 
   removeAll() {
     document.querySelectorAll('.auto-bc-header').forEach((el) => el.remove());
+    this.lastRenderedPath = null;
   }
 
   removeFromContainer(container: HTMLElement) {
@@ -33,25 +35,50 @@ export class BreadcrumbRenderer {
   }
 
   updateActiveLeaf() {
-    const view = this.app.workspace.getActiveViewOfType(View);
+    const leaf = this.app.workspace.getMostRecentLeaf();
+    if (!leaf) return;
 
-    if (!view) {
-      this.removeAll();
+    // 1. RootSplit-Filter: Schließt ausnahmslos alle Panels in Seitenleisten/Drawers aus
+    if (leaf.getRoot() !== this.app.workspace.rootSplit) {
       return;
     }
 
-    const file =
-      view instanceof FileView && view.file ? view.file : null;
+    const view = leaf.view;
+    if (!view) return;
 
+    // 2. Typprüfung: Nur FileViews mit Datei oder der New-Tab ('empty')
+    const isFileView = view instanceof FileView && !!view.file;
+    const isEmptyView = view.getViewType() === 'empty';
+
+    if (!isFileView && !isEmptyView) {
+      return;
+    }
+
+    const file = isFileView ? view.file : null;
     this.render(file, view.containerEl);
   }
 
   render(file: TFile | null, containerEl?: HTMLElement) {
     const targetRoot =
-      containerEl ??
-      this.app.workspace.getActiveViewOfType(View)?.containerEl;
+      containerEl ?? this.app.workspace.getMostRecentLeaf()?.view?.containerEl;
 
     if (!targetRoot) return;
+
+    // 3. Universeller Containerschild gegen Drawers und Sidedocks
+    if (
+      targetRoot.closest(
+        '.mod-left-split, .mod-right-split, .workspace-drawer, .mod-sidedock'
+      )
+    ) {
+      return;
+    }
+
+    // 4. Idempotenz-Schutz: Verhindert DOM-Mutationen während laufender Touch-Gesten
+    const currentPath = file ? file.path : '__empty__';
+    const existingBar = targetRoot.querySelector('.auto-bc-header');
+    if (existingBar && this.lastRenderedPath === currentPath) {
+      return;
+    }
 
     this.removeFromContainer(targetRoot);
 
@@ -68,8 +95,10 @@ export class BreadcrumbRenderer {
 
     const hasHierarchy = hierarchy.length > 0;
 
-    // Ohne Bookmarks und ohne Hierarchie gibt es nichts zu rendern.
-    if (!showBookmarksSetting && !hasHierarchy) return;
+    if (!showBookmarksSetting && !hasHierarchy) {
+      this.lastRenderedPath = null;
+      return;
+    }
 
     const placeInHeader =
       settings.positionMode === 'header'
@@ -84,20 +113,17 @@ export class BreadcrumbRenderer {
       }`,
     });
 
-    // Bookmarks unabhängig von der geöffneten Datei anzeigen.
     if (showBookmarksSetting) {
       this.renderBookmarksDropdown(bar, file, bookmarkedFiles);
-
-      // Vertikaler Divider immer direkt nach dem Bookmark-Button.
       bar.createSpan({ cls: 'auto-bc-divider' });
     }
 
-    // Die Ordnerhierarchie nur anzeigen, wenn sie vorhanden ist.
     if (file && hasHierarchy) {
       this.renderHierarchyLinks(bar, file, hierarchy);
     }
 
     this.mountBar(targetRoot, bar, placeInHeader, hasHierarchy);
+    this.lastRenderedPath = currentPath;
   }
 
   private renderBookmarksDropdown(
@@ -113,7 +139,6 @@ export class BreadcrumbRenderer {
     const iconSpan = trigger.createSpan({
       cls: 'auto-bc-bm-icon',
     });
-
     setIcon(iconSpan, 'bookmark');
 
     const arrow = trigger.createSpan({ text: '▾' });
@@ -127,39 +152,37 @@ export class BreadcrumbRenderer {
 
     const isMobile = Platform.isMobile;
     if (isMobile) {
-    trigger.addEventListener('click', (e: MouseEvent) => {
+      trigger.addEventListener('click', (e: MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
 
         const isOpen = wrapper.classList.contains('is-open');
-
         wrapper.classList.toggle('is-open', !isOpen);
         wrapper.classList.remove('is-closed');
-    });
+      });
     } else {
-    wrapper.addEventListener('mouseenter', () => {
+      wrapper.addEventListener('mouseenter', () => {
         wrapper.classList.add('is-open');
         wrapper.classList.remove('is-closed');
-    });
+      });
 
-    wrapper.addEventListener('mouseleave', () => {
+      wrapper.addEventListener('mouseleave', () => {
         wrapper.classList.remove('is-open');
         wrapper.classList.remove('is-closed');
-    });
+      });
 
-    trigger.addEventListener('click', (e: MouseEvent) => {
+      trigger.addEventListener('click', (e: MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
 
         wrapper.classList.remove('is-open');
-    });
+      });
     }
 
     if (bookmarks.length === 0) {
       const emptyItem = menuInner.createDiv({
         cls: 'auto-bc-bm-item',
       });
-
       emptyItem.style.opacity = '0.5';
       emptyItem.style.cursor = 'default';
       emptyItem.createSpan({ text: 'No bookmarks found' });
@@ -176,13 +199,11 @@ export class BreadcrumbRenderer {
         const itemIcon = item.createSpan({
           cls: 'auto-bc-bm-item-icon',
         });
-
         setIcon(itemIcon, 'file-text');
         item.createSpan({ text: bm.title });
 
         item.onclick = (e: MouseEvent) => {
           e.preventDefault();
-
           wrapper.classList.remove('is-open');
           wrapper.classList.add('is-closed');
 
@@ -205,7 +226,11 @@ export class BreadcrumbRenderer {
         this.createSeparator(bar);
       }
 
-      const label = this.getSettings().labelMode === 'file' && item.matchedFile ? item.matchedFile.basename : item.name;
+      const label =
+        this.getSettings().labelMode === 'file' && item.matchedFile
+          ? item.matchedFile.basename
+          : item.name;
+
       if (item.matchedFile) {
         const matchedFile = item.matchedFile;
         const link = bar.createEl('a', {
@@ -215,7 +240,6 @@ export class BreadcrumbRenderer {
 
         link.onclick = (e: MouseEvent) => {
           e.preventDefault();
-
           this.app.workspace.openLinkText(
             matchedFile.path,
             currentFile.path
@@ -241,8 +265,7 @@ export class BreadcrumbRenderer {
 
       const titleParent =
         viewHeader?.querySelector('.view-header-title-container') ||
-        viewHeader?.querySelector('.view-header-left') ||
-        viewHeader;
+        viewHeader?.querySelector('.view-header-left');
 
       if (titleParent) {
         titleParent
@@ -262,7 +285,15 @@ export class BreadcrumbRenderer {
       }
     }
 
-    // Editor-Position oder Fallback bei leerem Tab
+    // New Tab (Leerer Tab) oder Editor-Fallback
+    const isEmptyTab = containerEl.classList.contains('mod-empty');
+    if (isEmptyTab) {
+      bar.classList.add('auto-bc-in-empty');
+      containerEl.prepend(bar);
+      return;
+    }
+
+    // Regulärer Editor-Modus
     const targetContainer =
       containerEl.querySelector('.cm-sizer') ||
       containerEl.querySelector('.markdown-preview-sizer') ||
@@ -278,9 +309,7 @@ export class BreadcrumbRenderer {
     const sep = parent.createSpan({
       cls: 'auto-bc-separator',
     });
-
     setIcon(sep, 'chevron-right');
-
     return sep;
   }
 }

@@ -425,3 +425,17 @@ body {
     transition: none;
   }
 }
+
+/* Verankerung oben links im leeren Tab (New Tab) */
+.view-content.mod-empty {
+  position: relative;
+}
+
+.auto-bc-header.auto-bc-in-empty {
+  position: absolute;
+  top: var(--size-4-3, 12px);
+  left: var(--size-4-4, 16px);
+  z-index: var(--layer-popover, 10);
+  margin: 0;
+  padding: 0;
+}
