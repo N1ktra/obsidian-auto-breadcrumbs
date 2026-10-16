@@ -62,6 +62,19 @@ export class AutoBreadcrumbsSettingTab extends PluginSettingTab {
           placeholder: 'md, base, canvas',
         },
       },
+      {
+        name: 'Breadcrumb label',
+        desc: 'Choose whether breadcrumbs display folder names or the names of matching notes.',
+        control: {
+          type: 'dropdown',
+          key: 'labelMode',
+          options: {
+            'folder': 'Folder name',
+            'file': 'Matching file name',
+          },
+        },
+      },
+
     ];
   }
 }

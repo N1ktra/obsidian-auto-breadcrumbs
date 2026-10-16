@@ -6,6 +6,7 @@ export interface AutoBreadcrumbsSettings {
   filterMode: 'auto' | 'all' | 'clickable';
   ignorePrefix: boolean;
   allowedExtensions: string;
+  labelMode: 'folder' | 'file';
 }
 
 export const DEFAULT_SETTINGS: AutoBreadcrumbsSettings = {
@@ -14,6 +15,7 @@ export const DEFAULT_SETTINGS: AutoBreadcrumbsSettings = {
   filterMode: 'auto',
   ignorePrefix: true,
   allowedExtensions: 'md, base, canvas',
+  labelMode: 'folder',
 };
 
 export interface FolderHierarchyItem {

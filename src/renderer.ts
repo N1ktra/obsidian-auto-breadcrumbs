@@ -197,11 +197,11 @@ export class BreadcrumbRenderer {
         this.createSeparator(bar);
       }
 
+      const label = this.getSettings().labelMode === 'file' && item.matchedFile ? item.matchedFile.basename : item.name;
       if (item.matchedFile) {
         const matchedFile = item.matchedFile;
-
         const link = bar.createEl('a', {
-          text: item.name,
+          text: label,
           cls: 'auto-bc-link',
         });
 
@@ -215,7 +215,7 @@ export class BreadcrumbRenderer {
         };
       } else {
         bar.createSpan({
-          text: item.name,
+          text: label,
           cls: 'auto-bc-static',
         });
       }
