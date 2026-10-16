@@ -253,8 +253,6 @@ export class BreadcrumbRenderer {
             el.style.display = 'none';
           });
 
-        // Chevron vor dem nativen Titel nur dann,
-        // wenn tatsächlich eine Hierarchie angezeigt wird.
         if (hasHierarchy) {
           this.createSeparator(bar);
         }
@@ -264,11 +262,12 @@ export class BreadcrumbRenderer {
       }
     }
 
-    // Editor-Fallback oder erzwungene Editor-Position.
+    // Editor-Position oder Fallback bei leerem Tab
     const targetContainer =
       containerEl.querySelector('.cm-sizer') ||
       containerEl.querySelector('.markdown-preview-sizer') ||
-      containerEl.querySelector('.view-content');
+      containerEl.querySelector('.view-content') ||
+      containerEl;
 
     if (targetContainer) {
       targetContainer.prepend(bar);

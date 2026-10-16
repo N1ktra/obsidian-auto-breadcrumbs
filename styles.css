@@ -97,6 +97,10 @@ body {
 
 /* Placement: editor */
 .auto-bc-header.auto-bc-in-editor {
+  position: relative;
+  z-index: var(--layer-popover, 10);
+  pointer-events: auto;
+
   margin: 0;
   padding: 0.5rem 0 0.75rem;
 
@@ -352,8 +356,7 @@ body {
   cursor: default;
 }
 
-/* --- Separator (chevron icon) --- */
-
+/* --- Separator (text character '›') --- */
 .auto-bc-header .auto-bc-separator {
   display: inline-flex;
   align-items: center;
@@ -361,16 +364,15 @@ body {
   flex: 0 0 auto;
 
   margin: 0 var(--auto-bc-gap);
+  padding: 0 1px;
 
-  color: var(--text-faint);
-  opacity: 0.7;
+  color: var(--text-muted);
+  opacity: 0.85;
 
-  --icon-size: var(--auto-bc-separator-size);
-}
-
-.auto-bc-header .auto-bc-separator svg {
-  width: var(--auto-bc-separator-size);
-  height: var(--auto-bc-separator-size);
+  font-size: 1.35em;
+  line-height: 1;
+  font-weight: 400;
+  user-select: none;
 }
 
 
