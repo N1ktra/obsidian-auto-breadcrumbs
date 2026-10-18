@@ -1,4 +1,4 @@
-import { App, FileView, Platform, setIcon, TFile, View } from 'obsidian';
+import { App, FileView, Menu, Platform, setIcon, TFile, View } from 'obsidian';
 import {
   AutoBreadcrumbsSettings,
   BookmarkItemRef,
@@ -231,14 +231,15 @@ export class BreadcrumbRenderer {
           ? item.matchedFile.basename
           : item.name;
 
+      let el: HTMLElement;
       if (item.matchedFile) {
         const matchedFile = item.matchedFile;
-        const link = bar.createEl('a', {
+        el = bar.createEl('a', {
           text: label,
           cls: 'auto-bc-link',
         });
 
-        link.onclick = (e: MouseEvent) => {
+        el.onclick = (e: MouseEvent) => {
           e.preventDefault();
           this.app.workspace.openLinkText(
             matchedFile.path,
@@ -246,12 +247,52 @@ export class BreadcrumbRenderer {
           );
         };
       } else {
-        bar.createSpan({
+        el = bar.createSpan({
           text: label,
           cls: 'auto-bc-static',
         });
       }
+
+      el.addEventListener('contextmenu', (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.showBreadcrumbContextMenu(e, item);
+      });
     });
+  }
+
+  private showBreadcrumbContextMenu(e: MouseEvent, item: FolderHierarchyItem) {
+    const menu = new Menu();
+
+    menu.addItem((menuItem) => {
+      menuItem
+        .setTitle('Reveal in file navigation')
+        .setIcon('folder-open')
+        .onClick(() => {
+          // @ts-expect-error Obsidian private internal plugins API
+          const fileExplorer = this.app.internalPlugins?.getPluginById('file-explorer');
+          const target = item.folderObj || item.matchedFile;
+          if (fileExplorer?.instance?.revealInFolder && target) {
+            fileExplorer.instance.revealInFolder(target);
+          }
+        });
+    });
+
+    const appWithExplorer = this.app as App & {
+      showInFolder?: (path: string) => void;
+    };
+    if (!Platform.isMobile && typeof appWithExplorer.showInFolder === 'function') {
+      menu.addItem((menuItem) => {
+        menuItem
+          .setTitle('Show in system explorer')
+          .setIcon('external-link')
+          .onClick(() => {
+            appWithExplorer.showInFolder?.(item.path);
+          });
+      });
+    }
+
+    menu.showAtMouseEvent(e);
   }
 
   private mountBar(
