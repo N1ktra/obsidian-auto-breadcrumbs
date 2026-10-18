@@ -24,6 +24,16 @@ export class BreadcrumbRenderer {
     container.querySelectorAll('.auto-bc-header').forEach((el) => el.remove());
   }
 
+  private hideNativeBreadcrumbs(containerEl: HTMLElement) {
+    containerEl
+      .querySelectorAll<HTMLElement>(
+        '.view-header-breadcrumb, .view-header-breadcrumb-separator'
+      )
+      .forEach((el) => {
+        el.style.display = 'none';
+      });
+  }
+
   restoreNativeBreadcrumbs() {
     document
       .querySelectorAll<HTMLElement>(
@@ -73,6 +83,10 @@ export class BreadcrumbRenderer {
       return;
     }
 
+    // Native Ordner-Breadcrumbs in der oberen Leiste immer ausblenden,
+    // damit auf Mobile / im Editor-Modus oben nur der Dateiname steht.
+    this.hideNativeBreadcrumbs(targetRoot);
+
     // 4. Idempotenz-Schutz: Verhindert DOM-Mutationen während laufender Touch-Gesten
     const currentPath = file ? file.path : '__empty__';
     const existingBar = targetRoot.querySelector('.auto-bc-header');
@@ -105,7 +119,7 @@ export class BreadcrumbRenderer {
         ? true
         : settings.positionMode === 'editor'
           ? false
-          : !Platform.isMobile;
+          : !Platform.isPhone;
 
     const bar = createEl('div', {
       cls: `auto-bc-header ${
@@ -308,14 +322,6 @@ export class BreadcrumbRenderer {
         viewHeader?.querySelector('.view-header-left');
 
       if (titleParent) {
-        titleParent
-          .querySelectorAll<HTMLElement>(
-            '.view-header-breadcrumb, .view-header-breadcrumb-separator'
-          )
-          .forEach((el) => {
-            el.style.display = 'none';
-          });
-
         if (hasHierarchy) {
           this.createSeparator(bar);
         }

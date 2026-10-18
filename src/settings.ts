@@ -26,7 +26,7 @@ export class AutoBreadcrumbsSettingTab extends PluginSettingTab {
           type: 'dropdown',
           key: 'positionMode',
           options: {
-            'auto': 'Automatic (Desktop: View header, Mobile: Note header)',
+            'auto': 'Automatic (Desktop & Tablet: View header, Phone: Note header)',
             'header': 'Always in view header',
             'editor': 'Always below header (in note content)',
           },
@@ -39,7 +39,7 @@ export class AutoBreadcrumbsSettingTab extends PluginSettingTab {
           type: 'dropdown',
           key: 'filterMode',
           options: {
-            'auto': 'Automatic (Desktop: Full path, Mobile: Clickable only)',
+            'auto': 'Automatic (Desktop & Tablet: Full path, Phone: Clickable only)',
             'all': 'Always show full path',
             'clickable': 'Always show clickable folders only',
           },

@@ -52,7 +52,7 @@ export class BreadcrumbResolver {
         ? true
         : filterMode === 'all'
         ? false
-        : Platform.isMobile;
+        : Platform.isPhone;
 
     if (onlyClickable) {
       return hierarchy.filter((item) => item.matchedFile !== null);
