@@ -1,4 +1,4 @@
-import { App, FileView, Menu, Platform, setIcon, TFile, View } from 'obsidian';
+import { App, FileView, Menu, Platform, setIcon, TAbstractFile, TFile, View } from 'obsidian';
 import {
   AutoBreadcrumbsSettings,
   BookmarkItemRef,
@@ -256,12 +256,12 @@ export class BreadcrumbRenderer {
       el.addEventListener('contextmenu', (e: MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        this.showBreadcrumbContextMenu(e, item);
+        this.showContextMenu(e, item.folderObj || item.matchedFile, item.path);
       });
     });
   }
 
-  private showBreadcrumbContextMenu(e: MouseEvent, item: FolderHierarchyItem) {
+  showContextMenu(e: MouseEvent, target: TAbstractFile | null, path: string) {
     const menu = new Menu();
 
     menu.addItem((menuItem) => {
@@ -271,7 +271,6 @@ export class BreadcrumbRenderer {
         .onClick(() => {
           // @ts-expect-error Obsidian private internal plugins API
           const fileExplorer = this.app.internalPlugins?.getPluginById('file-explorer');
-          const target = item.folderObj || item.matchedFile;
           if (fileExplorer?.instance?.revealInFolder && target) {
             fileExplorer.instance.revealInFolder(target);
           }
@@ -287,7 +286,7 @@ export class BreadcrumbRenderer {
           .setTitle('Show in system explorer')
           .setIcon('external-link')
           .onClick(() => {
-            appWithExplorer.showInFolder?.(item.path);
+            appWithExplorer.showInFolder?.(path);
           });
       });
     }

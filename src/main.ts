@@ -1,4 +1,4 @@
-import { Plugin, WorkspaceLeaf } from 'obsidian';
+import { FileView, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import { AutoBreadcrumbsSettings, DEFAULT_SETTINGS } from './types';
 import { AutoBreadcrumbsSettingTab } from './settings';
 import { BreadcrumbResolver } from './resolver';
@@ -60,6 +60,39 @@ export default class AutoBreadcrumbsPlugin extends Plugin {
           el.classList.remove('is-open');
           el.classList.remove('is-closed');
         });
+      }
+    });
+
+    // Rechtsklick-Menü auf den Dateinamen in der oberen View-Header-Leiste
+    this.registerDomEvent(document, 'contextmenu', (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      const titleEl = target?.closest('.view-header-title');
+      if (!titleEl) return;
+
+      if (
+        titleEl.closest(
+          '.mod-left-split, .mod-right-split, .workspace-drawer, .mod-sidedock'
+        )
+      ) {
+        return;
+      }
+
+      let matchedFile: TFile | null = null;
+      this.app.workspace.iterateRootLeaves((leaf) => {
+        if (
+          !matchedFile &&
+          leaf.view instanceof FileView &&
+          leaf.view.file &&
+          leaf.view.containerEl.contains(titleEl)
+        ) {
+          matchedFile = leaf.view.file;
+        }
+      });
+
+      if (matchedFile) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.renderer.showContextMenu(e, matchedFile, (matchedFile as TFile).path);
       }
     });
   }
