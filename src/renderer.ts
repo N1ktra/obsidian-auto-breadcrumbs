@@ -436,9 +436,10 @@ export class BreadcrumbRenderer {
     });
     setIcon(iconSpan, 'bookmark');
 
-    const arrow = trigger.createSpan({ text: '▾' });
-    arrow.style.fontSize = '0.8em';
-    arrow.style.opacity = '0.6';
+    const arrow = trigger.createSpan({
+      cls: 'auto-bc-bm-arrow',
+    });
+    setIcon(arrow, 'chevron-down');
 
     const menu = wrapper.createDiv({ cls: 'auto-bc-bm-menu' });
     const menuInner = menu.createDiv({
