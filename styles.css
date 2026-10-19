@@ -61,11 +61,11 @@ body {
    ======================================================= */
 
 /* Hide Obsidian's own breadcrumbs when replaced in the header
-   or on mobile so the top bar only shows the file name (.view-header-title). */
+   or on smartphones so the top bar only shows the file name (.view-header-title). */
 .view-header-title-container:has(.auto-bc-in-header) .view-header-breadcrumb,
 .view-header-title-container:has(.auto-bc-in-header) .view-header-breadcrumb-separator,
-.is-mobile .view-header-title-container .view-header-breadcrumb,
-.is-mobile .view-header-title-container .view-header-breadcrumb-separator {
+.is-phone .view-header-title-container .view-header-breadcrumb,
+.is-phone .view-header-title-container .view-header-breadcrumb-separator {
   display: none;
 }
 

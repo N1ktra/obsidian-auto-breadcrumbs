@@ -102,7 +102,7 @@ export class BreadcrumbRenderer {
       ? this.resolver.getBookmarkedFiles()
       : [];
 
-    if (Platform.isMobile) {
+    if (Platform.isPhone) {
       const hierarchy: FolderHierarchyItem[] = file
         ? this.resolver.getFolderHierarchy(file, true)
         : [];
@@ -562,7 +562,7 @@ export class BreadcrumbRenderer {
     const appWithExplorer = this.app as App & {
       showInFolder?: (path: string) => void;
     };
-    if (!Platform.isMobile && typeof appWithExplorer.showInFolder === 'function') {
+    if (Platform.isDesktop && typeof appWithExplorer.showInFolder === 'function') {
       menu.addItem((menuItem) => {
         menuItem
           .setTitle('Show in system explorer')

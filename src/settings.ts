@@ -13,15 +13,15 @@ export class AutoBreadcrumbsSettingTab extends PluginSettingTab {
     return [
       {
         name: 'Show bookmarks button',
-        desc: 'Displays a compact bookmark button for quick access to your bookmarked notes (dropdown on desktop, native sheet on mobile).',
+        desc: 'Displays a compact bookmark button for quick access to your bookmarked notes (dropdown on desktop/tablet, native sheet on smartphone).',
         control: {
           type: 'toggle',
           key: 'showBookmarks',
         },
       },
       {
-        name: 'Mobile navigation button',
-        desc: 'Choose how the parent folder navigation button is displayed on mobile.',
+        name: 'Smartphone navigation button',
+        desc: 'Choose how the parent folder navigation button is displayed on smartphone.',
         control: {
           type: 'dropdown',
           key: 'mobilePathAction',
@@ -33,8 +33,8 @@ export class AutoBreadcrumbsSettingTab extends PluginSettingTab {
         },
       },
       {
-        name: 'Desktop path display mode',
-        desc: 'Choose whether to display only folders that have a matching clickable note, or the full folder path on desktop.',
+        name: 'Desktop & Tablet path display mode',
+        desc: 'Choose whether to display only folders that have a matching clickable note, or the full folder path on desktop and tablet.',
         control: {
           type: 'dropdown',
           key: 'filterMode',
