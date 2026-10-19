@@ -27,7 +27,7 @@ export class BreadcrumbRenderer {
   private hideNativeBreadcrumbs(containerEl: HTMLElement) {
     containerEl
       .querySelectorAll<HTMLElement>(
-        '.view-header-breadcrumb, .view-header-breadcrumb-separator'
+        '.view-header-title-parent, .view-header-breadcrumb, .view-header-breadcrumb-separator'
       )
       .forEach((el) => {
         el.style.display = 'none';
@@ -37,7 +37,7 @@ export class BreadcrumbRenderer {
   restoreNativeBreadcrumbs() {
     document
       .querySelectorAll<HTMLElement>(
-        '.view-header-breadcrumb, .view-header-breadcrumb-separator'
+        '.view-header-title-parent, .view-header-breadcrumb, .view-header-breadcrumb-separator'
       )
       .forEach((el) => {
         el.style.display = '';
@@ -207,11 +207,59 @@ export class BreadcrumbRenderer {
     bmBtn.setAttribute('aria-label', 'Bookmarks');
     setIcon(bmBtn, 'bookmark');
 
+    let activeMenu: Menu | null = null;
+    let lastClosedTime = 0;
+
+    bmBtn.addEventListener('mousedown', (e: MouseEvent) => {
+      e.preventDefault();
+    });
+
+    bmBtn.addEventListener('pointerup', () => {
+      setTimeout(() => {
+        bmBtn.blur();
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      }, 0);
+    });
+
     bmBtn.addEventListener('click', (e: MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
 
+      // Wenn das Menü bereits offen ist: durch erneuten Klick schließen (Toggle-Verhalten)
+      if (activeMenu || bmBtn.hasClass('has-active-menu')) {
+        activeMenu?.hide();
+        activeMenu = null;
+        bmBtn.removeClass('has-active-menu');
+        bmBtn.blur();
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+        lastClosedTime = Date.now();
+        return;
+      }
+
+      // Verhindert versehentliches Wiederöffnen durch nacheilende Klick-Events direkt nach dem Schließen
+      if (Date.now() - lastClosedTime < 350) {
+        bmBtn.blur();
+        return;
+      }
+
       const menu = new Menu();
+      activeMenu = menu;
+      menu.setParentElement(bmBtn);
+
+      menu.onHide(() => {
+        activeMenu = null;
+        lastClosedTime = Date.now();
+        bmBtn.removeClass('has-active-menu');
+        bmBtn.blur();
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      });
+
       if (bookmarks.length === 0) {
         menu.addItem((item) => {
           item.setTitle('No bookmarks found').setDisabled(true);
@@ -311,6 +359,7 @@ export class BreadcrumbRenderer {
     hierarchy: FolderHierarchyItem[]
   ) {
     const menu = new Menu();
+    menu.setParentElement(btn);
     const reversed = [...hierarchy].reverse();
 
     reversed.forEach((item) => {
@@ -401,9 +450,23 @@ export class BreadcrumbRenderer {
     hasHierarchy: boolean
   ) {
     const viewHeader = containerEl.querySelector('.view-header');
+    const titleContainer = viewHeader?.querySelector<HTMLElement>(
+      '.view-header-title-container'
+    );
+    const titleEl = titleContainer?.querySelector<HTMLElement>('.view-header-title');
+
+    if (titleContainer && titleEl) {
+      if (hasHierarchy) {
+        this.createSeparator(bar);
+      }
+      titleContainer.insertBefore(bar, titleEl);
+      titleContainer.scrollLeft = 0;
+      return;
+    }
+
     const titleParent =
-      viewHeader?.querySelector('.view-header-title-container') ||
-      viewHeader?.querySelector('.view-header-left');
+      titleContainer ||
+      viewHeader?.querySelector<HTMLElement>('.view-header-left');
 
     if (titleParent) {
       if (hasHierarchy) {
@@ -454,12 +517,38 @@ export class BreadcrumbRenderer {
     wrapper.addEventListener('mouseleave', () => {
       wrapper.classList.remove('is-open');
       wrapper.classList.remove('is-closed');
+      trigger.blur();
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    });
+
+    trigger.addEventListener('pointerup', () => {
+      setTimeout(() => {
+        trigger.blur();
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      }, 0);
     });
 
     trigger.addEventListener('click', (e: MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      wrapper.classList.remove('is-open');
+
+      const isOpen = wrapper.classList.contains('is-open');
+      if (isOpen) {
+        wrapper.classList.remove('is-open');
+        wrapper.classList.add('is-closed');
+      } else {
+        wrapper.classList.add('is-open');
+        wrapper.classList.remove('is-closed');
+      }
+
+      trigger.blur();
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
     });
 
     if (bookmarks.length === 0) {

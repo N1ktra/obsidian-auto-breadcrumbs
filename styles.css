@@ -60,13 +60,20 @@ body {
    2. Native breadcrumb suppression
    ======================================================= */
 
-/* Hide Obsidian's own breadcrumbs when replaced in the header
+/* Hide Obsidian's own breadcrumbs and their parent container when replaced in the header
    or on smartphones so the top bar only shows the file name (.view-header-title). */
+.view-header-title-container:has(.auto-bc-in-header) .view-header-title-parent,
 .view-header-title-container:has(.auto-bc-in-header) .view-header-breadcrumb,
 .view-header-title-container:has(.auto-bc-in-header) .view-header-breadcrumb-separator,
+.is-phone .view-header-title-container .view-header-title-parent,
 .is-phone .view-header-title-container .view-header-breadcrumb,
 .is-phone .view-header-title-container .view-header-breadcrumb-separator {
   display: none;
+}
+
+/* Prevent horizontal scroll jumps when clicking or renaming the title */
+.workspace-leaf .view-header-title-container:has(.auto-bc-in-header) {
+  scroll-behavior: auto;
 }
 
 
@@ -93,7 +100,7 @@ body {
   margin: 0;
   padding: 0;
 
-  font-size: var(--font-ui-medium, inherit);
+  font-size: var(--font-ui-small, inherit);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -203,14 +210,15 @@ body {
     border-color var(--auto-bc-transition);
 }
 
-.auto-bc-bm-trigger:hover,
+/* Open state */
 .auto-bc-bm-wrapper.is-open .auto-bc-bm-trigger {
   background-color: var(--background-modifier-hover);
   border-color: var(--text-muted);
 }
 
-/* Wrapper hover state, only on devices with a real hover capability */
-@media (hover: hover) {
+/* Hover state, only on devices with a real pointer and hover capability */
+@media (hover: hover) and (pointer: fine) {
+  .auto-bc-bm-trigger:hover,
   .auto-bc-bm-wrapper:not(.is-closed):hover .auto-bc-bm-trigger {
     background-color: var(--background-modifier-hover);
     border-color: var(--text-muted);
@@ -234,7 +242,6 @@ body {
   height: var(--auto-bc-icon-size);
 }
 
-.auto-bc-bm-trigger:hover .auto-bc-bm-icon,
 .auto-bc-bm-wrapper.is-open .auto-bc-bm-icon {
   opacity: 1;
 }
@@ -255,9 +262,17 @@ body {
   height: 12px;
 }
 
-.auto-bc-bm-trigger:hover .auto-bc-bm-arrow,
 .auto-bc-bm-wrapper.is-open .auto-bc-bm-arrow {
   opacity: 0.95;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .auto-bc-bm-trigger:hover .auto-bc-bm-icon {
+    opacity: 1;
+  }
+  .auto-bc-bm-trigger:hover .auto-bc-bm-arrow {
+    opacity: 0.95;
+  }
 }
 
 /* --- Menu positioning and visibility --- */
@@ -482,7 +497,20 @@ body {
    (requires tabindex="0" on the elements)
    ======================================================= */
 
+.auto-bc-bm-trigger:focus,
 .auto-bc-bm-trigger:focus-visible,
+.auto-bc-mobile-btn:focus,
+.auto-bc-mobile-btn:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.auto-bc-mobile-btn:not(.has-active-menu) {
+  background-color: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
 .auto-bc-bm-item:focus-visible,
 .auto-bc-header .auto-bc-link:focus-visible {
   outline: 2px solid var(--interactive-accent);

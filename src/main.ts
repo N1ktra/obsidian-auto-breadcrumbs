@@ -59,9 +59,23 @@ export default class AutoBreadcrumbsPlugin extends Plugin {
         document.querySelectorAll('.auto-bc-bm-wrapper').forEach((el) => {
           el.classList.remove('is-open');
           el.classList.remove('is-closed');
+          el.querySelector<HTMLElement>('.auto-bc-bm-trigger')?.blur();
         });
       }
     });
+
+    // Verhindert ungewolltes horizontales Verschieben beim Anklicken/Bearbeiten des Dateinamens
+    this.registerDomEvent(
+      document,
+      'scroll',
+      (e: Event) => {
+        const target = e.target as HTMLElement | null;
+        if (target?.classList?.contains('view-header-title-container')) {
+          target.scrollLeft = 0;
+        }
+      },
+      true
+    );
 
     // Rechtsklick-Menü auf den Dateinamen in der oberen View-Header-Leiste
     this.registerDomEvent(document, 'contextmenu', (e: MouseEvent) => {
