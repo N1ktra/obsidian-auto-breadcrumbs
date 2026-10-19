@@ -60,12 +60,10 @@ body {
    2. Native breadcrumb suppression
    ======================================================= */
 
-/* Hide Obsidian's own breadcrumbs when replaced in the header, in editor mode,
+/* Hide Obsidian's own breadcrumbs when replaced in the header
    or on mobile so the top bar only shows the file name (.view-header-title). */
 .view-header-title-container:has(.auto-bc-in-header) .view-header-breadcrumb,
 .view-header-title-container:has(.auto-bc-in-header) .view-header-breadcrumb-separator,
-.workspace-leaf:has(.auto-bc-in-editor) .view-header-breadcrumb,
-.workspace-leaf:has(.auto-bc-in-editor) .view-header-breadcrumb-separator,
 .is-mobile .view-header-title-container .view-header-breadcrumb,
 .is-mobile .view-header-title-container .view-header-breadcrumb-separator {
   display: none;
@@ -90,7 +88,7 @@ body {
   user-select: none;
 }
 
-/* Placement: view header */
+/* Placement: view header (desktop) */
 .auto-bc-header.auto-bc-in-header {
   margin: 0;
   padding: 0;
@@ -100,19 +98,66 @@ body {
   flex-shrink: 0;
 }
 
-/* Placement: editor */
-.auto-bc-header.auto-bc-in-editor {
-  position: relative;
-  z-index: var(--layer-popover, 10);
-  pointer-events: auto;
-
+/* Placement: mobile navigation overlay */
+.auto-bc-header.auto-bc-mobile-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-1, 2px);
   margin: 0;
-  padding: 0.5rem 0 0.75rem;
+  padding: 0;
+  flex-shrink: 0;
+}
 
-  font-size: 0.8em;
+/* Mobile buttons matching native Obsidian buttons */
+.auto-bc-mobile-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.auto-bc-mobile-nav .clickable-icon.view-action {
+  margin: 0;
+}
+
+/* Disabled button state */
+.auto-bc-mobile-btn.is-disabled {
+  opacity: var(--icon-opacity-disabled, 0.35);
+  pointer-events: none;
+  cursor: default;
+}
+
+/* Compact parent chip style on mobile */
+.auto-bc-mobile-btn.auto-bc-mobile-parent {
+  display: inline-flex;
+  align-items: center;
+  max-width: 130px;
+  gap: var(--size-2-1, 2px);
+  padding: 2px var(--size-2-3, 6px);
+  border-radius: var(--auto-bc-radius, 4px);
+  background-color: var(--background-modifier-form-field);
+  border: 1px solid var(--auto-bc-border);
+}
+
+.auto-bc-mobile-btn.auto-bc-mobile-parent:active {
+  background-color: var(--background-modifier-hover);
+}
+
+.auto-bc-mobile-parent-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82em;
+  font-weight: 500;
   line-height: 1.2;
+}
 
-  flex-wrap: wrap;
+.auto-bc-mobile-btn .auto-bc-mobile-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 

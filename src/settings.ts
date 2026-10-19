@@ -12,36 +12,35 @@ export class AutoBreadcrumbsSettingTab extends PluginSettingTab {
   getSettingDefinitions(): SettingDefinition[] {
     return [
       {
-        name: 'Show bookmarks dropdown',
-        desc: 'Displays a compact bookmark icon on the left with a dropdown list of all your bookmarked notes.',
+        name: 'Show bookmarks button',
+        desc: 'Displays a compact bookmark button for quick access to your bookmarked notes (dropdown on desktop, native sheet on mobile).',
         control: {
           type: 'toggle',
           key: 'showBookmarks',
         },
       },
       {
-        name: 'Breadcrumbs position',
-        desc: 'Choose where the navigation bar should be rendered.',
+        name: 'Mobile navigation button',
+        desc: 'Choose how the parent folder navigation button is displayed on mobile.',
         control: {
           type: 'dropdown',
-          key: 'positionMode',
+          key: 'mobilePathAction',
           options: {
-            'auto': 'Automatic (Desktop & Tablet: View header, Phone: Note header)',
-            'header': 'Always in view header',
-            'editor': 'Always below header (in note content)',
+            'folder-up': 'Up button with folder icon (folder-up)',
+            'arrow-up': 'Up button with arrow icon (arrow-up)',
+            'parent-name': 'Immediate parent name (compact chip)',
           },
         },
       },
       {
-        name: 'Path display mode',
-        desc: 'Choose whether to display the full folder path or only folders that have a matching clickable note.',
+        name: 'Desktop path display mode',
+        desc: 'Choose whether to display only folders that have a matching clickable note, or the full folder path on desktop.',
         control: {
           type: 'dropdown',
           key: 'filterMode',
           options: {
-            'auto': 'Automatic (Desktop & Tablet: Full path, Phone: Clickable only)',
+            'clickable': 'Show clickable folders only (default)',
             'all': 'Always show full path',
-            'clickable': 'Always show clickable folders only',
           },
         },
       },
@@ -64,13 +63,13 @@ export class AutoBreadcrumbsSettingTab extends PluginSettingTab {
       },
       {
         name: 'Breadcrumb label',
-        desc: 'Choose whether breadcrumbs display folder names or the names of matching notes.',
+        desc: 'Choose whether breadcrumbs display the names of matching notes or folder names.',
         control: {
           type: 'dropdown',
           key: 'labelMode',
           options: {
+            'file': 'Matching file name (default)',
             'folder': 'Folder name',
-            'file': 'Matching file name',
           },
         },
       },

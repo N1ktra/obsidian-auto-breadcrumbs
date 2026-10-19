@@ -7,15 +7,17 @@ export interface AutoBreadcrumbsSettings {
   ignorePrefix: boolean;
   allowedExtensions: string;
   labelMode: 'folder' | 'file';
+  mobilePathAction: 'folder-up' | 'arrow-up' | 'parent-name';
 }
 
 export const DEFAULT_SETTINGS: AutoBreadcrumbsSettings = {
   showBookmarks: true,
-  positionMode: 'auto',
-  filterMode: 'auto',
+  positionMode: 'header',
+  filterMode: 'clickable',
   ignorePrefix: true,
   allowedExtensions: 'md, base, canvas',
-  labelMode: 'folder',
+  labelMode: 'file',
+  mobilePathAction: 'folder-up',
 };
 
 export interface FolderHierarchyItem {

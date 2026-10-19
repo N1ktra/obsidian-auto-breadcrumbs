@@ -1,4 +1,4 @@
-import { App, FileView, Menu, Platform, setIcon, TAbstractFile, TFile, View } from 'obsidian';
+import { App, FileView, Menu, Platform, setIcon, TAbstractFile, TFile } from 'obsidian';
 import {
   AutoBreadcrumbsSettings,
   BookmarkItemRef,
@@ -83,8 +83,7 @@ export class BreadcrumbRenderer {
       return;
     }
 
-    // Native Ordner-Breadcrumbs in der oberen Leiste immer ausblenden,
-    // damit auf Mobile / im Editor-Modus oben nur der Dateiname steht.
+    // Native Ordner-Breadcrumbs in der oberen Leiste immer ausblenden
     this.hideNativeBreadcrumbs(targetRoot);
 
     // 4. Idempotenz-Schutz: Verhindert DOM-Mutationen während laufender Touch-Gesten
@@ -103,44 +102,326 @@ export class BreadcrumbRenderer {
       ? this.resolver.getBookmarkedFiles()
       : [];
 
-    const hierarchy: FolderHierarchyItem[] = file
-      ? this.resolver.getFolderHierarchy(file)
-      : [];
+    if (Platform.isMobile) {
+      const hierarchy: FolderHierarchyItem[] = file
+        ? this.resolver.getFolderHierarchy(file, true)
+        : [];
 
-    const hasHierarchy = hierarchy.length > 0;
+      const clickableAncestors = hierarchy.filter(
+        (item): item is FolderHierarchyItem & { matchedFile: TFile } =>
+          item.matchedFile !== null
+      );
+      const targetParentItem =
+        clickableAncestors.length > 0
+          ? clickableAncestors[clickableAncestors.length - 1]
+          : null;
 
-    if (!showBookmarksSetting && !hasHierarchy) {
-      this.lastRenderedPath = null;
-      return;
+      if (!showBookmarksSetting && !targetParentItem) {
+        this.lastRenderedPath = null;
+        return;
+      }
+
+      this.renderMobile(targetRoot, file, bookmarkedFiles, hierarchy, targetParentItem);
+    } else {
+      const hierarchy: FolderHierarchyItem[] = file
+        ? this.resolver.getFolderHierarchy(file)
+        : [];
+
+      const hasHierarchy = hierarchy.length > 0;
+
+      if (!showBookmarksSetting && !hasHierarchy) {
+        this.lastRenderedPath = null;
+        return;
+      }
+
+      this.renderDesktop(targetRoot, file, bookmarkedFiles, hierarchy);
     }
 
-    const placeInHeader =
-      settings.positionMode === 'header'
-        ? true
-        : settings.positionMode === 'editor'
-          ? false
-          : !Platform.isPhone;
+    this.lastRenderedPath = currentPath;
+  }
+
+  // ==========================================
+  // Mobile Rendering
+  // ==========================================
+
+  private renderMobile(
+    targetRoot: HTMLElement,
+    file: TFile | null,
+    bookmarks: BookmarkItemRef[],
+    hierarchy: FolderHierarchyItem[],
+    targetParentItem: (FolderHierarchyItem & { matchedFile: TFile }) | null
+  ) {
+    const settings = this.getSettings();
+    const showBookmarksSetting = settings.showBookmarks;
 
     const bar = createEl('div', {
-      cls: `auto-bc-header ${
-        placeInHeader ? 'auto-bc-in-header' : 'auto-bc-in-editor'
-      }`,
+      cls: 'auto-bc-header auto-bc-mobile-nav',
     });
 
     if (showBookmarksSetting) {
-      this.renderBookmarksDropdown(bar, file, bookmarkedFiles);
+      this.renderBookmarksButtonMobile(bar, file, bookmarks);
+    }
+
+    if (file) {
+      this.renderParentActionMobile(bar, file, hierarchy, targetParentItem);
+    }
+
+    this.mountMobileBar(targetRoot, bar);
+  }
+
+  private mountMobileBar(containerEl: HTMLElement, bar: HTMLElement) {
+    const viewHeader = containerEl.querySelector('.view-header');
+    if (!viewHeader) {
+      const isEmptyTab = containerEl.classList.contains('mod-empty');
+      if (isEmptyTab) {
+        bar.classList.add('auto-bc-in-empty');
+        containerEl.prepend(bar);
+      }
+      return;
+    }
+
+    // Direkt in .view-header-left einhängen, damit die Buttons nahtlos neben Zurück/Vor sitzen
+    const headerLeft = viewHeader.querySelector('.view-header-left');
+    if (headerLeft) {
+      headerLeft.appendChild(bar);
+      return;
+    }
+
+    const titleContainer = viewHeader.querySelector('.view-header-title-container');
+    if (titleContainer) {
+      viewHeader.insertBefore(bar, titleContainer);
+      return;
+    }
+
+    viewHeader.prepend(bar);
+  }
+
+  private renderBookmarksButtonMobile(
+    bar: HTMLElement,
+    currentFile: TFile | null,
+    bookmarks: BookmarkItemRef[]
+  ) {
+    const bmBtn = bar.createDiv({
+      cls: 'clickable-icon view-action auto-bc-mobile-btn auto-bc-mobile-bm',
+    });
+    bmBtn.setAttribute('aria-label', 'Bookmarks');
+    setIcon(bmBtn, 'bookmark');
+
+    bmBtn.addEventListener('click', (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const menu = new Menu();
+      if (bookmarks.length === 0) {
+        menu.addItem((item) => {
+          item.setTitle('No bookmarks found').setDisabled(true);
+        });
+      } else {
+        bookmarks.forEach((bm) => {
+          const isCurrent = currentFile ? currentFile.path === bm.path : false;
+          menu.addItem((item) => {
+            item
+              .setTitle(bm.title)
+              .setIcon('file-text')
+              .setChecked(isCurrent)
+              .onClick(() => {
+                this.app.workspace.openLinkText(
+                  bm.path,
+                  currentFile ? currentFile.path : ''
+                );
+              });
+          });
+        });
+      }
+
+      if (e.clientX || e.clientY) {
+        menu.showAtMouseEvent(e);
+      } else {
+        const rect = bmBtn.getBoundingClientRect();
+        menu.showAtPosition({ x: rect.left, y: rect.bottom });
+      }
+    });
+  }
+
+  private renderParentActionMobile(
+    bar: HTMLElement,
+    currentFile: TFile,
+    hierarchy: FolderHierarchyItem[],
+    targetParentItem: (FolderHierarchyItem & { matchedFile: TFile }) | null
+  ) {
+    const settings = this.getSettings();
+    const style = settings.mobilePathAction || 'folder-up';
+
+    if (!targetParentItem) {
+      // Keine klickbare übergeordnete Notiz vorhanden (oder Datei im Root):
+      // Button wird deaktiviert (ausgegraut, nicht klickbar)
+      const disabledBtn = bar.createDiv({
+        cls: 'clickable-icon view-action auto-bc-mobile-btn auto-bc-mobile-up is-disabled',
+      });
+      disabledBtn.setAttribute('aria-label', 'No parent note');
+      disabledBtn.setAttribute('aria-disabled', 'true');
+      setIcon(disabledBtn, style === 'arrow-up' ? 'arrow-up' : 'folder-up');
+      return;
+    }
+
+    const label =
+      settings.labelMode === 'file'
+        ? targetParentItem.matchedFile.basename
+        : targetParentItem.name;
+
+    const upBtn = bar.createDiv({
+      cls: `clickable-icon view-action auto-bc-mobile-btn auto-bc-mobile-up ${
+        style === 'parent-name' ? 'auto-bc-mobile-parent' : ''
+      }`,
+    });
+
+    const tooltip = `${label} (${targetParentItem.matchedFile.basename})`;
+    upBtn.setAttribute('aria-label', tooltip);
+
+    if (style === 'parent-name') {
+      const iconSpan = upBtn.createSpan({ cls: 'auto-bc-mobile-btn-icon' });
+      setIcon(iconSpan, 'folder-up');
+      upBtn.createSpan({ cls: 'auto-bc-mobile-parent-label', text: label });
+    } else if (style === 'arrow-up') {
+      setIcon(upBtn, 'arrow-up');
+    } else {
+      setIcon(upBtn, 'folder-up');
+    }
+
+    upBtn.addEventListener('click', (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.app.workspace.openLinkText(
+        targetParentItem.matchedFile.path,
+        currentFile.path
+      );
+    });
+
+    upBtn.addEventListener('contextmenu', (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.showMobileHierarchyMenu(e, upBtn, currentFile, hierarchy);
+    });
+  }
+
+  private showMobileHierarchyMenu(
+    e: MouseEvent,
+    btn: HTMLElement,
+    currentFile: TFile,
+    hierarchy: FolderHierarchyItem[]
+  ) {
+    const menu = new Menu();
+    const reversed = [...hierarchy].reverse();
+
+    reversed.forEach((item) => {
+      const label =
+        this.getSettings().labelMode === 'file' && item.matchedFile
+          ? item.matchedFile.basename
+          : item.name;
+
+      menu.addItem((menuItem) => {
+        menuItem
+          .setTitle(label)
+          .setIcon(item.matchedFile ? 'file-text' : 'folder')
+          .setDisabled(!item.matchedFile && !item.folderObj)
+          .onClick(() => {
+            if (item.matchedFile) {
+              this.app.workspace.openLinkText(
+                item.matchedFile.path,
+                currentFile.path
+              );
+            } else if (item.folderObj) {
+              // @ts-expect-error Obsidian private internal plugins API
+              const fileExplorer = this.app.internalPlugins?.getPluginById('file-explorer');
+              if (fileExplorer?.instance?.revealInFolder) {
+                fileExplorer.instance.revealInFolder(item.folderObj);
+              }
+            }
+          });
+      });
+    });
+
+    if (currentFile.parent && !currentFile.parent.isRoot()) {
+      menu.addSeparator();
+      menu.addItem((menuItem) => {
+        menuItem
+          .setTitle('Reveal in file navigation')
+          .setIcon('folder-open')
+          .onClick(() => {
+            // @ts-expect-error Obsidian private internal plugins API
+            const fileExplorer = this.app.internalPlugins?.getPluginById('file-explorer');
+            if (fileExplorer?.instance?.revealInFolder && currentFile.parent) {
+              fileExplorer.instance.revealInFolder(currentFile.parent);
+            }
+          });
+      });
+    }
+
+    if (e.clientX || e.clientY) {
+      menu.showAtMouseEvent(e);
+    } else {
+      const rect = btn.getBoundingClientRect();
+      menu.showAtPosition({ x: rect.left, y: rect.bottom });
+    }
+  }
+
+  // ==========================================
+  // Desktop Rendering
+  // ==========================================
+
+  private renderDesktop(
+    targetRoot: HTMLElement,
+    file: TFile | null,
+    bookmarks: BookmarkItemRef[],
+    hierarchy: FolderHierarchyItem[]
+  ) {
+    const settings = this.getSettings();
+    const showBookmarksSetting = settings.showBookmarks;
+    const hasHierarchy = hierarchy.length > 0;
+
+    const bar = createEl('div', {
+      cls: 'auto-bc-header auto-bc-in-header',
+    });
+
+    if (showBookmarksSetting) {
+      this.renderBookmarksDropdownDesktop(bar, file, bookmarks);
       bar.createSpan({ cls: 'auto-bc-divider' });
     }
 
     if (file && hasHierarchy) {
-      this.renderHierarchyLinks(bar, file, hierarchy);
+      this.renderHierarchyLinksDesktop(bar, file, hierarchy);
     }
 
-    this.mountBar(targetRoot, bar, placeInHeader, hasHierarchy);
-    this.lastRenderedPath = currentPath;
+    this.mountDesktopBar(targetRoot, bar, hasHierarchy);
   }
 
-  private renderBookmarksDropdown(
+  private mountDesktopBar(
+    containerEl: HTMLElement,
+    bar: HTMLElement,
+    hasHierarchy: boolean
+  ) {
+    const viewHeader = containerEl.querySelector('.view-header');
+    const titleParent =
+      viewHeader?.querySelector('.view-header-title-container') ||
+      viewHeader?.querySelector('.view-header-left');
+
+    if (titleParent) {
+      if (hasHierarchy) {
+        this.createSeparator(bar);
+      }
+      titleParent.prepend(bar);
+      return;
+    }
+
+    // New Tab (Leerer Tab) Fallback
+    const isEmptyTab = containerEl.classList.contains('mod-empty');
+    if (isEmptyTab) {
+      bar.classList.add('auto-bc-in-empty');
+      containerEl.prepend(bar);
+    }
+  }
+
+  private renderBookmarksDropdownDesktop(
     bar: HTMLElement,
     currentFile: TFile | null,
     bookmarks: BookmarkItemRef[]
@@ -164,34 +445,21 @@ export class BreadcrumbRenderer {
       cls: 'auto-bc-bm-menu-inner',
     });
 
-    const isMobile = Platform.isMobile;
-    if (isMobile) {
-      trigger.addEventListener('click', (e: MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
+    wrapper.addEventListener('mouseenter', () => {
+      wrapper.classList.add('is-open');
+      wrapper.classList.remove('is-closed');
+    });
 
-        const isOpen = wrapper.classList.contains('is-open');
-        wrapper.classList.toggle('is-open', !isOpen);
-        wrapper.classList.remove('is-closed');
-      });
-    } else {
-      wrapper.addEventListener('mouseenter', () => {
-        wrapper.classList.add('is-open');
-        wrapper.classList.remove('is-closed');
-      });
+    wrapper.addEventListener('mouseleave', () => {
+      wrapper.classList.remove('is-open');
+      wrapper.classList.remove('is-closed');
+    });
 
-      wrapper.addEventListener('mouseleave', () => {
-        wrapper.classList.remove('is-open');
-        wrapper.classList.remove('is-closed');
-      });
-
-      trigger.addEventListener('click', (e: MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        wrapper.classList.remove('is-open');
-      });
-    }
+    trigger.addEventListener('click', (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      wrapper.classList.remove('is-open');
+    });
 
     if (bookmarks.length === 0) {
       const emptyItem = menuInner.createDiv({
@@ -230,7 +498,7 @@ export class BreadcrumbRenderer {
     }
   }
 
-  private renderHierarchyLinks(
+  private renderHierarchyLinksDesktop(
     bar: HTMLElement,
     currentFile: TFile,
     hierarchy: FolderHierarchyItem[]
@@ -306,49 +574,6 @@ export class BreadcrumbRenderer {
     }
 
     menu.showAtMouseEvent(e);
-  }
-
-  private mountBar(
-    containerEl: HTMLElement,
-    bar: HTMLElement,
-    placeInHeader: boolean,
-    hasHierarchy: boolean
-  ) {
-    if (placeInHeader) {
-      const viewHeader = containerEl.querySelector('.view-header');
-
-      const titleParent =
-        viewHeader?.querySelector('.view-header-title-container') ||
-        viewHeader?.querySelector('.view-header-left');
-
-      if (titleParent) {
-        if (hasHierarchy) {
-          this.createSeparator(bar);
-        }
-
-        titleParent.prepend(bar);
-        return;
-      }
-    }
-
-    // New Tab (Leerer Tab) oder Editor-Fallback
-    const isEmptyTab = containerEl.classList.contains('mod-empty');
-    if (isEmptyTab) {
-      bar.classList.add('auto-bc-in-empty');
-      containerEl.prepend(bar);
-      return;
-    }
-
-    // Regulärer Editor-Modus
-    const targetContainer =
-      containerEl.querySelector('.cm-sizer') ||
-      containerEl.querySelector('.markdown-preview-sizer') ||
-      containerEl.querySelector('.view-content') ||
-      containerEl;
-
-    if (targetContainer) {
-      targetContainer.prepend(bar);
-    }
   }
 
   private createSeparator(parent: HTMLElement): HTMLElement {

@@ -21,7 +21,7 @@ export class BreadcrumbResolver {
       .filter((ext) => ext.length > 0);
   }
 
-  getFolderHierarchy(file: TFile): FolderHierarchyItem[] {
+  getFolderHierarchy(file: TFile, ignoreFilter = false): FolderHierarchyItem[] {
     const rawFolders: { name: string; path: string; folderObj: TFolder }[] = [];
     let cur = file.parent;
 
@@ -45,14 +45,13 @@ export class BreadcrumbResolver {
       matchedFile: this.findMatchingFile(folder),
     }));
 
+    if (ignoreFilter) {
+      return hierarchy;
+    }
+
     // Determine if non-clickable folders should be filtered out
     const filterMode = this.getSettings().filterMode;
-    const onlyClickable =
-      filterMode === 'clickable'
-        ? true
-        : filterMode === 'all'
-        ? false
-        : Platform.isPhone;
+    const onlyClickable = filterMode !== 'all';
 
     if (onlyClickable) {
       return hierarchy.filter((item) => item.matchedFile !== null);
