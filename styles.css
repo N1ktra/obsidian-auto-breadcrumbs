@@ -188,13 +188,13 @@ body {
   align-items: center;
   gap: var(--auto-bc-gap-compact);
 
-  color: var(--text-normal);
-  background-color: var(--background-modifier-form-field);
+  color: var(--text-muted);
+  background-color: transparent;
 
-  border: 1px solid var(--auto-bc-border);
+  border: 1px solid transparent;
   border-radius: var(--auto-bc-radius);
 
-  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  box-shadow: none;
 
   padding: var(--size-2-1, 2px) var(--size-2-3, 6px);
 
@@ -206,22 +206,23 @@ body {
 
   transition:
     color var(--auto-bc-transition),
-    background-color var(--auto-bc-transition),
-    border-color var(--auto-bc-transition);
+    background-color var(--auto-bc-transition);
 }
 
 /* Open state */
 .auto-bc-bm-wrapper.is-open .auto-bc-bm-trigger {
+  color: var(--text-normal);
   background-color: var(--background-modifier-hover);
-  border-color: var(--text-muted);
+  border-color: transparent;
 }
 
 /* Hover state, only on devices with a real pointer and hover capability */
 @media (hover: hover) and (pointer: fine) {
   .auto-bc-bm-trigger:hover,
   .auto-bc-bm-wrapper:not(.is-closed):hover .auto-bc-bm-trigger {
+    color: var(--text-normal);
     background-color: var(--background-modifier-hover);
-    border-color: var(--text-muted);
+    border-color: transparent;
   }
 }
 
@@ -398,19 +399,19 @@ body {
    5. Hierarchy elements
    ======================================================= */
 
-/* --- Links (chips) --- */
+/* --- Links (flat folder entries) --- */
 
 .auto-bc-header .auto-bc-link {
   display: inline-flex;
   align-items: center;
 
   color: var(--text-muted);
-  background-color: var(--background-modifier-form-field);
+  background-color: transparent;
 
-  border: 1px solid var(--auto-bc-border);
+  border: 1px solid transparent;
   border-radius: var(--auto-bc-radius);
 
-  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  box-shadow: none;
 
   padding: 1px var(--auto-bc-gap-normal);
 
@@ -421,14 +422,13 @@ body {
 
   transition:
     color var(--auto-bc-transition),
-    background-color var(--auto-bc-transition),
-    border-color var(--auto-bc-transition);
+    background-color var(--auto-bc-transition);
 }
 
 .auto-bc-header .auto-bc-link:hover {
-  color: var(--text-on-accent);
-  background-color: var(--interactive-accent);
-  border-color: var(--interactive-accent);
+  color: var(--text-normal);
+  background-color: var(--background-modifier-hover);
+  border-color: transparent;
 
   text-decoration: none;
 }
@@ -436,8 +436,13 @@ body {
 /* --- Static items (no matching file) --- */
 
 .auto-bc-header .auto-bc-static {
-  color: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
 
+  color: var(--text-muted);
+  background-color: transparent;
+
+  border: 1px solid transparent;
   padding: 1px var(--auto-bc-gap-compact);
 
   cursor: default;
