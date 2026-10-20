@@ -107,12 +107,42 @@ export class BreadcrumbResolver {
     const extractItems = (list: any[]) => {
       for (const item of list) {
         if (item.type === 'file') {
-          const file = this.app.vault.getAbstractFileByPath(item.path);
+          let itemPath = (item.path as string) || '';
+          let itemSubpath = item.subpath as string | undefined;
+
+          // In case subpath is included directly in item.path (e.g., path#subpath)
+          if (!itemSubpath && itemPath.includes('#')) {
+            const hashIndex = itemPath.indexOf('#');
+            itemSubpath = itemPath.substring(hashIndex);
+            itemPath = itemPath.substring(0, hashIndex);
+          }
+
+          const file = this.app.vault.getAbstractFileByPath(itemPath);
           if (file instanceof TFile) {
+            let title = '';
+            if (typeof bmPlugin.instance?.getItemTitle === 'function') {
+              try {
+                title = bmPlugin.instance.getItemTitle(item);
+              } catch {
+                title = '';
+              }
+            }
+            if (!title) {
+              if (item.title) {
+                title = item.title;
+              } else if (itemSubpath) {
+                title = `${file.basename}${itemSubpath}`;
+              } else {
+                title = file.basename;
+              }
+            }
+
             result.push({
-              title: item.title || file.basename,
+              title,
               path: file.path,
-              file: file,
+              file,
+              subpath: itemSubpath,
+              rawItem: item,
             });
           }
         } else if (item.type === 'group' && Array.isArray(item.items)) {

@@ -31,4 +31,6 @@ export interface BookmarkItemRef {
   title: string;
   path: string;
   file: TFile;
+  subpath?: string;
+  rawItem?: any;
 }

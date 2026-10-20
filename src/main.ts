@@ -50,6 +50,16 @@ export default class AutoBreadcrumbsPlugin extends Plugin {
 
     this.app.workspace.onLayoutReady(() => {
       this.renderer.updateActiveLeaf();
+
+      // @ts-expect-error Obsidian private internal plugins API
+      const bmPlugin = this.app.internalPlugins?.getPluginById('bookmarks');
+      if (bmPlugin?.instance) {
+        this.registerEvent(
+          bmPlugin.instance.on('changed', () => {
+            this.renderer.updateActiveLeaf(true);
+          })
+        );
+      }
     });
 
     // Dropdown bei Klick ins Leere schließen
@@ -117,7 +127,7 @@ export default class AutoBreadcrumbsPlugin extends Plugin {
 
   async saveSettings() {
     await super.saveData(this.settings);
-    this.renderer.updateActiveLeaf();
+    this.renderer.updateActiveLeaf(true);
   }
 
   onunload() {

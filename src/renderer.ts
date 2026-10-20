@@ -1,4 +1,4 @@
-import { App, FileView, Menu, Platform, setIcon, TAbstractFile, TFile } from 'obsidian';
+import { App, FileView, Keymap, Menu, Platform, setIcon, TAbstractFile, TFile } from 'obsidian';
 import {
   AutoBreadcrumbsSettings,
   BookmarkItemRef,
@@ -44,7 +44,7 @@ export class BreadcrumbRenderer {
       });
   }
 
-  updateActiveLeaf() {
+  updateActiveLeaf(force = false) {
     const leaf = this.app.workspace.getMostRecentLeaf();
     if (!leaf) return;
 
@@ -65,10 +65,10 @@ export class BreadcrumbRenderer {
     }
 
     const file = isFileView ? view.file : null;
-    this.render(file, view.containerEl);
+    this.render(file, view.containerEl, force);
   }
 
-  render(file: TFile | null, containerEl?: HTMLElement) {
+  render(file: TFile | null, containerEl?: HTMLElement, force = false) {
     const targetRoot =
       containerEl ?? this.app.workspace.getMostRecentLeaf()?.view?.containerEl;
 
@@ -89,7 +89,7 @@ export class BreadcrumbRenderer {
     // 4. Idempotenz-Schutz: Verhindert DOM-Mutationen während laufender Touch-Gesten
     const currentPath = file ? file.path : '__empty__';
     const existingBar = targetRoot.querySelector('.auto-bc-header');
-    if (existingBar && this.lastRenderedPath === currentPath) {
+    if (!force && existingBar && this.lastRenderedPath === currentPath) {
       return;
     }
 
@@ -266,17 +266,14 @@ export class BreadcrumbRenderer {
         });
       } else {
         bookmarks.forEach((bm) => {
-          const isCurrent = currentFile ? currentFile.path === bm.path : false;
+          const isCurrent = this.isBookmarkCurrent(bm, currentFile);
           menu.addItem((item) => {
             item
               .setTitle(bm.title)
               .setIcon('file-text')
               .setChecked(isCurrent)
-              .onClick(() => {
-                this.app.workspace.openLinkText(
-                  bm.path,
-                  currentFile ? currentFile.path : ''
-                );
+              .onClick((evt: MouseEvent) => {
+                this.openBookmarkItem(bm, evt, currentFile);
               });
           });
         });
@@ -560,9 +557,7 @@ export class BreadcrumbRenderer {
       emptyItem.createSpan({ text: 'No bookmarks found' });
     } else {
       bookmarks.forEach((bm) => {
-        const isCurrent = currentFile
-          ? currentFile.path === bm.path
-          : false;
+        const isCurrent = this.isBookmarkCurrent(bm, currentFile);
 
         const item = menuInner.createEl('a', {
           cls: `auto-bc-bm-item ${isCurrent ? 'is-current' : ''}`,
@@ -574,15 +569,19 @@ export class BreadcrumbRenderer {
         setIcon(itemIcon, 'file-text');
         item.createSpan({ text: bm.title });
 
-        item.onclick = (e: MouseEvent) => {
+        const handleOpen = (e: MouseEvent) => {
           e.preventDefault();
           wrapper.classList.remove('is-open');
           wrapper.classList.add('is-closed');
 
-          this.app.workspace.openLinkText(
-            bm.path,
-            currentFile ? currentFile.path : ''
-          );
+          this.openBookmarkItem(bm, e, currentFile);
+        };
+
+        item.onclick = handleOpen;
+        item.onauxclick = (e: MouseEvent) => {
+          if (e.button === 1) {
+            handleOpen(e);
+          }
         };
       });
     }
@@ -664,6 +663,65 @@ export class BreadcrumbRenderer {
     }
 
     menu.showAtMouseEvent(e);
+  }
+
+  private openBookmarkItem(
+    bm: BookmarkItemRef,
+    e?: MouseEvent,
+    currentFile?: TFile | null
+  ) {
+    // @ts-expect-error Obsidian private internal plugins API
+    const bmPlugin = this.app.internalPlugins?.getPluginById('bookmarks');
+    const isMod = e ? Keymap.isModEvent(e) : false;
+
+    if (
+      bmPlugin?.enabled &&
+      typeof bmPlugin.instance?.openBookmark === 'function' &&
+      bm.rawItem
+    ) {
+      bmPlugin.instance.openBookmark(bm.rawItem, isMod, { eState: { focus: true } });
+      return;
+    }
+
+    const fullPath = bm.subpath
+      ? `${bm.path}${bm.subpath.startsWith('#') ? bm.subpath : '#' + bm.subpath}`
+      : bm.path;
+
+    this.app.workspace.openLinkText(
+      fullPath,
+      currentFile ? currentFile.path : '',
+      isMod,
+      { eState: { focus: true } }
+    );
+  }
+
+  private isBookmarkCurrent(
+    bm: BookmarkItemRef,
+    currentFile: TFile | null
+  ): boolean {
+    if (!currentFile || currentFile.path !== bm.path) {
+      return false;
+    }
+
+    const activeView: any =
+      this.app.workspace.getActiveViewOfType(FileView) ||
+      this.app.workspace.activeLeaf?.view;
+
+    const baseViewName = activeView?.queryController?.viewName;
+
+    if (bm.subpath) {
+      if (baseViewName) {
+        const cleanSubpath = bm.subpath.replace(/^#/, '').trim().toLowerCase();
+        return cleanSubpath === String(baseViewName).trim().toLowerCase();
+      }
+      return false;
+    }
+
+    if (baseViewName) {
+      return false;
+    }
+
+    return true;
   }
 
   private createSeparator(parent: HTMLElement): HTMLElement {
