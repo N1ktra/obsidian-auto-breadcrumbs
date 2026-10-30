@@ -6,18 +6,55 @@ import {
 } from './types';
 import { BreadcrumbResolver } from './resolver';
 
+interface DesktopLeafData {
+  file: TFile;
+  hierarchy: FolderHierarchyItem[];
+  hierarchyEl: HTMLElement;
+  trailingSeparatorEl?: HTMLElement;
+  currentLevel: number;
+  lastWidth: number;
+}
+
+type HierarchyDisplayEntry =
+  | { type: 'item'; item: FolderHierarchyItem }
+  | { type: 'ellipsis'; collapsed: FolderHierarchyItem[] };
+
 export class BreadcrumbRenderer {
+  private resizeObserver: ResizeObserver;
+  private desktopLeafMap = new Map<HTMLElement, DesktopLeafData>();
+
   constructor(
     private app: App,
     private resolver: BreadcrumbResolver,
     private getSettings: () => AutoBreadcrumbsSettings
-  ) {}
+  ) {
+    this.resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target instanceof HTMLElement) {
+          const width = Math.round(entry.contentRect.width);
+          const data = this.desktopLeafMap.get(entry.target);
+          if (data && Math.abs(data.lastWidth - width) >= 4) {
+            this.adjustBreadcrumbCollapse(entry.target);
+          }
+        }
+      }
+    });
+  }
 
   removeAll() {
+    this.resizeObserver.disconnect();
+    this.desktopLeafMap.clear();
     document.querySelectorAll('.auto-bc-header').forEach((el) => el.remove());
   }
 
   removeFromContainer(container: HTMLElement) {
+    const titleContainer = container.querySelector<HTMLElement>(
+      '.view-header-title-container'
+    );
+    if (titleContainer) {
+      this.resizeObserver.unobserve(titleContainer);
+      this.desktopLeafMap.delete(titleContainer);
+    }
     container.querySelectorAll('.auto-bc-header').forEach((el) => el.remove());
   }
 
@@ -465,31 +502,51 @@ export class BreadcrumbRenderer {
       bar.createSpan({ cls: 'auto-bc-divider' });
     }
 
+    let hierarchyEl: HTMLElement | null = null;
     if (file && hasHierarchy) {
-      this.renderHierarchyLinksDesktop(bar, file, hierarchy);
+      hierarchyEl = bar.createDiv({ cls: 'auto-bc-hierarchy' });
     }
 
-    this.mountDesktopBar(targetRoot, bar, hasHierarchy);
+    const { titleContainer, trailingSeparator } = this.mountDesktopBar(
+      targetRoot,
+      bar,
+      hasHierarchy
+    );
+
+    if (titleContainer && hierarchyEl && file && hasHierarchy) {
+      this.desktopLeafMap.set(titleContainer, {
+        file,
+        hierarchy,
+        hierarchyEl,
+        trailingSeparatorEl: trailingSeparator,
+        currentLevel: -1,
+        lastWidth: 0,
+      });
+      this.resizeObserver.observe(titleContainer);
+      this.adjustBreadcrumbCollapse(titleContainer);
+    }
   }
 
   private mountDesktopBar(
     containerEl: HTMLElement,
     bar: HTMLElement,
     hasHierarchy: boolean
-  ) {
+  ): { titleContainer: HTMLElement | null; trailingSeparator?: HTMLElement } {
     const viewHeader = containerEl.querySelector('.view-header');
     const titleContainer = viewHeader?.querySelector<HTMLElement>(
       '.view-header-title-container'
     );
     const titleEl = titleContainer?.querySelector<HTMLElement>('.view-header-title');
 
+    let trailingSeparator: HTMLElement | undefined;
+
     if (titleContainer && titleEl) {
       if (hasHierarchy) {
-        this.createSeparator(bar);
+        trailingSeparator = this.createSeparator(bar);
       }
       titleContainer.insertBefore(bar, titleEl);
       titleContainer.scrollLeft = 0;
-      return;
+      return { titleContainer, trailingSeparator };
     }
 
     const titleParent =
@@ -498,10 +555,10 @@ export class BreadcrumbRenderer {
 
     if (titleParent) {
       if (hasHierarchy) {
-        this.createSeparator(bar);
+        trailingSeparator = this.createSeparator(bar);
       }
       titleParent.prepend(bar);
-      return;
+      return { titleContainer: titleParent, trailingSeparator };
     }
 
     // New Tab (Leerer Tab) Fallback
@@ -509,6 +566,222 @@ export class BreadcrumbRenderer {
     if (isEmptyTab) {
       bar.classList.add('auto-bc-in-empty');
       containerEl.prepend(bar);
+    }
+
+    return { titleContainer: null };
+  }
+
+  private adjustBreadcrumbCollapse(titleContainer: HTMLElement) {
+    const data = this.desktopLeafMap.get(titleContainer);
+    if (!data) return;
+
+    const { file, hierarchy, hierarchyEl, trailingSeparatorEl } = data;
+    const N = hierarchy.length;
+    if (N === 0) return;
+
+    const availableWidth = titleContainer.clientWidth;
+    if (availableWidth <= 0) return;
+
+    const titleEl = titleContainer.querySelector<HTMLElement>('.view-header-title');
+    const bar = titleContainer.querySelector<HTMLElement>('.auto-bc-header');
+    if (!bar) return;
+
+    // Reserve width for title: at least 70px so the file name remains visible and readable
+    const desiredTitleWidth = Math.min(titleEl?.scrollWidth || 70, 70);
+    const maxBarWidth = Math.max(availableWidth - desiredTitleWidth, 30);
+
+    const candidateLevels: number[] = [0];
+    if (N >= 3) candidateLevels.push(1);
+    if (N >= 2) candidateLevels.push(2);
+    candidateLevels.push(3);
+    candidateLevels.push(4);
+
+    let chosenLevel = 4;
+
+    for (const level of candidateLevels) {
+      if (level === 4) {
+        chosenLevel = 4;
+        break;
+      }
+      this.renderHierarchyLevel(hierarchyEl, file, hierarchy, level);
+      if (trailingSeparatorEl) {
+        trailingSeparatorEl.style.display = '';
+      }
+      if (bar.scrollWidth <= maxBarWidth) {
+        chosenLevel = level;
+        break;
+      }
+    }
+
+    if (chosenLevel === 4) {
+      hierarchyEl.empty();
+      if (trailingSeparatorEl) {
+        trailingSeparatorEl.style.display = 'none';
+      }
+    } else if (data.currentLevel !== chosenLevel) {
+      this.renderHierarchyLevel(hierarchyEl, file, hierarchy, chosenLevel);
+      if (trailingSeparatorEl) {
+        trailingSeparatorEl.style.display = '';
+      }
+    }
+
+    data.currentLevel = chosenLevel;
+    data.lastWidth = availableWidth;
+  }
+
+  private getEntriesForLevel(
+    hierarchy: FolderHierarchyItem[],
+    level: number
+  ): HierarchyDisplayEntry[] {
+    const N = hierarchy.length;
+    if (N === 0) return [];
+
+    switch (level) {
+      case 0:
+        return hierarchy.map((item) => ({ type: 'item', item }));
+      case 1:
+        if (N >= 3) {
+          return [
+            { type: 'item', item: hierarchy[0] },
+            { type: 'ellipsis', collapsed: hierarchy.slice(1, N - 1) },
+            { type: 'item', item: hierarchy[N - 1] },
+          ];
+        }
+        return hierarchy.map((item) => ({ type: 'item', item }));
+      case 2:
+        if (N >= 2) {
+          return [
+            { type: 'ellipsis', collapsed: hierarchy.slice(0, N - 1) },
+            { type: 'item', item: hierarchy[N - 1] },
+          ];
+        }
+        return hierarchy.map((item) => ({ type: 'item', item }));
+      case 3:
+        return [{ type: 'ellipsis', collapsed: hierarchy.slice(0) }];
+      default:
+        return [];
+    }
+  }
+
+  private renderHierarchyLevel(
+    hierarchyEl: HTMLElement,
+    currentFile: TFile,
+    hierarchy: FolderHierarchyItem[],
+    level: number
+  ) {
+    hierarchyEl.empty();
+    const entries = this.getEntriesForLevel(hierarchy, level);
+
+    entries.forEach((entry, index) => {
+      if (index > 0) {
+        this.createSeparator(hierarchyEl);
+      }
+
+      if (entry.type === 'item') {
+        const item = entry.item;
+        const label =
+          this.getSettings().labelMode === 'file' && item.matchedFile
+            ? item.matchedFile.basename
+            : item.name;
+
+        let el: HTMLElement;
+        if (item.matchedFile) {
+          const matchedFile = item.matchedFile;
+          el = hierarchyEl.createEl('a', {
+            text: label,
+            cls: 'auto-bc-link',
+          });
+          el.setAttribute('title', label);
+
+          el.onclick = (e: MouseEvent) => {
+            e.preventDefault();
+            this.app.workspace.openLinkText(
+              matchedFile.path,
+              currentFile.path
+            );
+          };
+        } else {
+          el = hierarchyEl.createSpan({
+            text: label,
+            cls: 'auto-bc-static',
+          });
+          el.setAttribute('title', label);
+        }
+
+        el.addEventListener('contextmenu', (e: MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.showContextMenu(e, item.folderObj || item.matchedFile, item.path);
+        });
+      } else if (entry.type === 'ellipsis') {
+        const collapsed = entry.collapsed;
+        const ellipsisEl = hierarchyEl.createEl('a', {
+          text: '…',
+          cls: 'auto-bc-link auto-bc-ellipsis',
+        });
+        ellipsisEl.setAttribute('aria-label', `${collapsed.length} folders`);
+        ellipsisEl.setAttribute(
+          'title',
+          `${collapsed.map((c) => c.name).join(' / ')} (${collapsed.length} hidden folders - click to show)`
+        );
+
+        ellipsisEl.addEventListener('click', (e: MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.showCollapsedMenu(e, collapsed, currentFile);
+        });
+
+        ellipsisEl.addEventListener('contextmenu', (e: MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.showCollapsedMenu(e, collapsed, currentFile);
+        });
+      }
+    });
+  }
+
+  private showCollapsedMenu(
+    e: MouseEvent,
+    collapsed: FolderHierarchyItem[],
+    currentFile: TFile
+  ) {
+    const menu = new Menu();
+
+    collapsed.forEach((item) => {
+      const label =
+        this.getSettings().labelMode === 'file' && item.matchedFile
+          ? item.matchedFile.basename
+          : item.name;
+
+      menu.addItem((menuItem) => {
+        menuItem
+          .setTitle(label)
+          .setIcon(item.matchedFile ? 'file-text' : 'folder')
+          .onClick(() => {
+            if (item.matchedFile) {
+              this.app.workspace.openLinkText(
+                item.matchedFile.path,
+                currentFile.path
+              );
+            } else if (item.folderObj) {
+              // @ts-expect-error Obsidian private internal plugins API
+              const fileExplorer = this.app.internalPlugins?.getPluginById('file-explorer');
+              if (fileExplorer?.instance?.revealInFolder) {
+                fileExplorer.instance.revealInFolder(item.folderObj);
+              }
+            }
+          });
+      });
+    });
+
+    if (e.clientX || e.clientY) {
+      menu.showAtMouseEvent(e);
+    } else {
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const rect = target.getBoundingClientRect();
+        menu.showAtPosition({ x: rect.left, y: rect.bottom });
+      }
     }
   }
 
@@ -616,51 +889,6 @@ export class BreadcrumbRenderer {
         };
       });
     }
-  }
-
-  private renderHierarchyLinksDesktop(
-    bar: HTMLElement,
-    currentFile: TFile,
-    hierarchy: FolderHierarchyItem[]
-  ) {
-    hierarchy.forEach((item, index) => {
-      if (index > 0) {
-        this.createSeparator(bar);
-      }
-
-      const label =
-        this.getSettings().labelMode === 'file' && item.matchedFile
-          ? item.matchedFile.basename
-          : item.name;
-
-      let el: HTMLElement;
-      if (item.matchedFile) {
-        const matchedFile = item.matchedFile;
-        el = bar.createEl('a', {
-          text: label,
-          cls: 'auto-bc-link',
-        });
-
-        el.onclick = (e: MouseEvent) => {
-          e.preventDefault();
-          this.app.workspace.openLinkText(
-            matchedFile.path,
-            currentFile.path
-          );
-        };
-      } else {
-        el = bar.createSpan({
-          text: label,
-          cls: 'auto-bc-static',
-        });
-      }
-
-      el.addEventListener('contextmenu', (e: MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.showContextMenu(e, item.folderObj || item.matchedFile, item.path);
-      });
-    });
   }
 
   showContextMenu(e: MouseEvent, target: TAbstractFile | null, path: string) {

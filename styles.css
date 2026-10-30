@@ -55,6 +55,25 @@ body {
   overflow: visible;
 }
 
+/* Ensure the title container and its children obey flex boundaries without overlapping adjacent controls */
+.workspace-leaf .view-header-title-container:has(.auto-bc-in-header) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Ensure title truncates cleanly with ellipsis and does not overlap view actions */
+.workspace-leaf .view-header-title-container:has(.auto-bc-in-header) .view-header-title {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-leaf .view-header-title-container:has(.auto-bc-in-header) .view-header-title:focus {
+  text-overflow: clip;
+}
+
 
 /* =======================================================
    2. Native breadcrumb suppression
@@ -102,7 +121,16 @@ body {
 
   font-size: var(--font-ui-small, inherit);
   white-space: nowrap;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+/* Dynamic hierarchy container */
+.auto-bc-header .auto-bc-hierarchy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--auto-bc-gap-compact);
+  min-width: 0;
 }
 
 /* Placement: mobile navigation overlay */
@@ -419,6 +447,10 @@ body {
   text-decoration: none;
 
   cursor: pointer;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 
   transition:
     color var(--auto-bc-transition),
@@ -446,6 +478,38 @@ body {
   padding: 1px var(--auto-bc-gap-compact);
 
   cursor: default;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Collapsed Ellipsis Button --- */
+
+.auto-bc-header .auto-bc-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 0 var(--size-2-2, 4px);
+  line-height: 1;
+
+  color: var(--text-muted);
+  border-radius: var(--auto-bc-radius);
+
+  cursor: pointer;
+  user-select: none;
+
+  transition:
+    color var(--auto-bc-transition),
+    background-color var(--auto-bc-transition);
+}
+
+.auto-bc-header .auto-bc-ellipsis:hover {
+  color: var(--text-normal);
+  background-color: var(--background-modifier-hover);
 }
 
 /* --- Separator --- */
