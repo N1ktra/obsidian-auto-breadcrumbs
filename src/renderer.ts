@@ -1,4 +1,4 @@
-import { App, FileView, Keymap, Menu, Platform, setIcon, TAbstractFile, TFile } from 'obsidian';
+import { App, FileView, Keymap, Menu, Platform, setIcon, TAbstractFile, TFile, WorkspaceLeaf } from 'obsidian';
 import {
   AutoBreadcrumbsSettings,
   BookmarkItemRef,
@@ -7,8 +7,6 @@ import {
 import { BreadcrumbResolver } from './resolver';
 
 export class BreadcrumbRenderer {
-  private lastRenderedPath: string | null = null;
-
   constructor(
     private app: App,
     private resolver: BreadcrumbResolver,
@@ -17,7 +15,6 @@ export class BreadcrumbRenderer {
 
   removeAll() {
     document.querySelectorAll('.auto-bc-header').forEach((el) => el.remove());
-    this.lastRenderedPath = null;
   }
 
   removeFromContainer(container: HTMLElement) {
@@ -44,19 +41,53 @@ export class BreadcrumbRenderer {
       });
   }
 
+  isMainAreaLeaf(leaf: WorkspaceLeaf): boolean {
+    if (!leaf) return false;
+    const root = leaf.getRoot();
+    if (
+      root === this.app.workspace.leftSplit ||
+      root === this.app.workspace.rightSplit
+    ) {
+      return false;
+    }
+
+    const container = leaf.view?.containerEl;
+    if (
+      container &&
+      container.closest(
+        '.mod-left-split, .mod-right-split, .workspace-drawer, .mod-sidedock'
+      )
+    ) {
+      return false;
+    }
+
+    return true;
+  }
+
   updateActiveLeaf(force = false) {
     const leaf = this.app.workspace.getMostRecentLeaf();
-    if (!leaf) return;
+    if (leaf) {
+      this.updateLeaf(leaf, force);
+    }
+  }
 
-    // 1. RootSplit-Filter: Schließt ausnahmslos alle Panels in Seitenleisten/Drawers aus
-    if (leaf.getRoot() !== this.app.workspace.rootSplit) {
+  updateAllLeaves(force = false) {
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      if (this.isMainAreaLeaf(leaf)) {
+        this.updateLeaf(leaf, force);
+      }
+    });
+  }
+
+  updateLeaf(leaf: WorkspaceLeaf, force = false) {
+    if (!leaf || !this.isMainAreaLeaf(leaf)) {
       return;
     }
 
     const view = leaf.view;
     if (!view) return;
 
-    // 2. Typprüfung: Nur FileViews mit Datei oder der New-Tab ('empty')
+    // Nur FileViews mit Datei oder der New-Tab ('empty')
     const isFileView = view instanceof FileView && !!view.file;
     const isEmptyView = view.getViewType() === 'empty';
 
@@ -86,10 +117,10 @@ export class BreadcrumbRenderer {
     // Native Ordner-Breadcrumbs in der oberen Leiste immer ausblenden
     this.hideNativeBreadcrumbs(targetRoot);
 
-    // 4. Idempotenz-Schutz: Verhindert DOM-Mutationen während laufender Touch-Gesten
+    // 4. Idempotenz-Schutz: Verhindert unnötige DOM-Mutationen
     const currentPath = file ? file.path : '__empty__';
-    const existingBar = targetRoot.querySelector('.auto-bc-header');
-    if (!force && existingBar && this.lastRenderedPath === currentPath) {
+    const existingBar = targetRoot.querySelector<HTMLElement>('.auto-bc-header');
+    if (!force && existingBar && existingBar.dataset.renderedPath === currentPath) {
       return;
     }
 
@@ -117,11 +148,10 @@ export class BreadcrumbRenderer {
           : null;
 
       if (!showBookmarksSetting && !targetParentItem) {
-        this.lastRenderedPath = null;
         return;
       }
 
-      this.renderMobile(targetRoot, file, bookmarkedFiles, hierarchy, targetParentItem);
+      this.renderMobile(targetRoot, file, bookmarkedFiles, hierarchy, targetParentItem, currentPath);
     } else {
       const hierarchy: FolderHierarchyItem[] = file
         ? this.resolver.getFolderHierarchy(file)
@@ -130,14 +160,11 @@ export class BreadcrumbRenderer {
       const hasHierarchy = hierarchy.length > 0;
 
       if (!showBookmarksSetting && !hasHierarchy) {
-        this.lastRenderedPath = null;
         return;
       }
 
-      this.renderDesktop(targetRoot, file, bookmarkedFiles, hierarchy);
+      this.renderDesktop(targetRoot, file, bookmarkedFiles, hierarchy, currentPath);
     }
-
-    this.lastRenderedPath = currentPath;
   }
 
   // ==========================================
@@ -149,7 +176,8 @@ export class BreadcrumbRenderer {
     file: TFile | null,
     bookmarks: BookmarkItemRef[],
     hierarchy: FolderHierarchyItem[],
-    targetParentItem: (FolderHierarchyItem & { matchedFile: TFile }) | null
+    targetParentItem: (FolderHierarchyItem & { matchedFile: TFile }) | null,
+    currentPath: string
   ) {
     const settings = this.getSettings();
     const showBookmarksSetting = settings.showBookmarks;
@@ -157,6 +185,7 @@ export class BreadcrumbRenderer {
     const bar = createEl('div', {
       cls: 'auto-bc-header auto-bc-mobile-nav',
     });
+    bar.dataset.renderedPath = currentPath;
 
     if (showBookmarksSetting) {
       this.renderBookmarksButtonMobile(bar, file, bookmarks);
@@ -419,7 +448,8 @@ export class BreadcrumbRenderer {
     targetRoot: HTMLElement,
     file: TFile | null,
     bookmarks: BookmarkItemRef[],
-    hierarchy: FolderHierarchyItem[]
+    hierarchy: FolderHierarchyItem[],
+    currentPath: string
   ) {
     const settings = this.getSettings();
     const showBookmarksSetting = settings.showBookmarks;
@@ -428,6 +458,7 @@ export class BreadcrumbRenderer {
     const bar = createEl('div', {
       cls: 'auto-bc-header auto-bc-in-header',
     });
+    bar.dataset.renderedPath = currentPath;
 
     if (showBookmarksSetting) {
       this.renderBookmarksDropdownDesktop(bar, file, bookmarks);

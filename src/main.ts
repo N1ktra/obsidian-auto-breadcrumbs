@@ -20,43 +20,55 @@ export default class AutoBreadcrumbsPlugin extends Plugin {
     // Reagiert nur bei Fokuswechseln im Hauptarbeitsbereich (ignoriert Seitenleisten komplett)
     this.registerEvent(
       this.app.workspace.on('active-leaf-change', (leaf: WorkspaceLeaf | null) => {
-        if (!leaf || leaf.getRoot() !== this.app.workspace.rootSplit) {
+        if (!leaf || !this.renderer.isMainAreaLeaf(leaf)) {
           return;
         }
-        this.renderer.updateActiveLeaf();
+        this.renderer.updateLeaf(leaf);
       })
     );
 
     // Reagiert verlässlich, wenn eine Datei geöffnet wird (z. B. aus linker Leiste oder Suche)
     this.registerEvent(
       this.app.workspace.on('file-open', () => {
-        this.renderer.updateActiveLeaf();
+        this.renderer.updateAllLeaves();
       })
     );
 
-    // Reagiert auf Layout-Änderungen im Hauptarbeitsbereich
+    // Reagiert auf Layout-Änderungen im Hauptarbeitsbereich (z. B. Splits öffnen/schließen)
     this.registerEvent(
       this.app.workspace.on('layout-change', () => {
-        this.renderer.updateActiveLeaf();
+        this.renderer.updateAllLeaves();
       })
     );
 
     // Reagiert auf Umbenennungen / Verschiebungen von Notizen
     this.registerEvent(
       this.app.vault.on('rename', () => {
-        this.renderer.updateActiveLeaf();
+        this.renderer.updateAllLeaves(true);
+      })
+    );
+
+    // Reagiert auf das Löschen von Notizen (z. B. falls Folder Notes gelöscht werden)
+    this.registerEvent(
+      this.app.vault.on('delete', () => {
+        this.renderer.updateAllLeaves(true);
       })
     );
 
     this.app.workspace.onLayoutReady(() => {
-      this.renderer.updateActiveLeaf();
+      this.renderer.updateAllLeaves();
+
+      // Ein kurzer verzögerter Durchlauf stellt sicher, dass auch verzögert initialisierte Split-Panes erfasst werden
+      setTimeout(() => {
+        this.renderer.updateAllLeaves();
+      }, 300);
 
       // @ts-expect-error Obsidian private internal plugins API
       const bmPlugin = this.app.internalPlugins?.getPluginById('bookmarks');
       if (bmPlugin?.instance) {
         this.registerEvent(
           bmPlugin.instance.on('changed', () => {
-            this.renderer.updateActiveLeaf(true);
+            this.renderer.updateAllLeaves(true);
           })
         );
       }
@@ -102,7 +114,7 @@ export default class AutoBreadcrumbsPlugin extends Plugin {
       }
 
       let matchedFile: TFile | null = null;
-      this.app.workspace.iterateRootLeaves((leaf) => {
+      this.app.workspace.iterateAllLeaves((leaf) => {
         if (
           !matchedFile &&
           leaf.view instanceof FileView &&
@@ -127,7 +139,7 @@ export default class AutoBreadcrumbsPlugin extends Plugin {
 
   async saveSettings() {
     await super.saveData(this.settings);
-    this.renderer.updateActiveLeaf(true);
+    this.renderer.updateAllLeaves(true);
   }
 
   onunload() {
